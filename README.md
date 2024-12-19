@@ -11,6 +11,6 @@ Le périmètre du référentiel porte sur le patrimoine des collectivités local
 ## Objectif
 Les objectifs poursuivis sont de
 - construire un référentiel partagé et limitatif des seuls besoins métiers (est exclu la gestion de chaque local ou la gestion d'une troisième dimension avec les étages des batiments)
-- définir le cycle de vie du référentiel en identifiant les événements de nature à faire vivre le référentiel
-- définir des modalités d'information en cas de modification du référentiel auprès des différents services concernés pour répercussion dans leurs progiciels métiers
+- définir le cycle de vie du référentiel en identifiant les événements de nature à le faire vivre
+- définir des modalités d'information en cas de modification du référentiel auprès des différents services concernés pour répercussion dans leurs progiciels métiers et les mettre en oeuvre
 - idéalement, étudier l'hypothèse d'intégration automatisée du référentiel et sa mise à jour, dans les progiciels métiers et la mettre en oeuvre
