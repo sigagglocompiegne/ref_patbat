@@ -6,7 +6,7 @@
 - 19/12/2024 : initialisation de la documentation
 
 ## Désignation
-Le périmètre du référentiel porte sur le patrimoine des collectivités publiques locales en situation de propriété ou d'exploitation d'une partie des locaux d'un batiment batiment ou dans son ensemble.
+Le périmètre du référentiel porte sur le patrimoine des collectivités locales en situation de propriété ou d'exploitation de tout ou partie des locaux d'un batiment.
 
 ## Objectif
 Les objectifs poursuivis sont de
