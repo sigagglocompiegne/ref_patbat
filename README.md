@@ -26,7 +26,8 @@ Lieu géographique cohérent comportant du patrimoine bâti et disposant d’une
 Il est autant que possible indépendant d’une approche métier, organisationnelle ou administrative afin d'assurer sa stabilité (délimitation, dénomination).
 
 #### Sous-site (optionnel)
-Classe optionnelle permettant si nécessaire de définir un sous ensemble spécifique d’un site.
+Classe optionnelle décrivant un sous-lieu géographique cohérent du patrimoibe bâti dans un site. 
+Cette classe permet si nécessaire de segmenter des fractions d'un site.
 
 #### Bâtiment
 Construction souterraine et/ou au-dessus du sol, ayant pour objectif d'être permanente, pour abriter des humains ou des activités humaines.
