@@ -21,6 +21,12 @@ _D'autre classes sont intégrées pour gérer des informations métiers attaché
 _Classe pour gérer les contacts
 
 ### Définitions
+
+Classe | Définition | Remarque
+--------- | --------- |--------- 
+Site | Lieu géographique cohérent comportant du patrimoine bâti et disposant d’une dénomination usuelle commune (il fait sens commun). Il est autant que possible indépendant d’une approche métier, organisationnelle ou administrative afin d'assurer sa stabilité (délimitation, dénomination) | Contenu 3 
+Sous-site | Classe optionnelle décrivant un sous-lieu géographique cohérent du patrimoibe bâti dans un site | Contenu 6
+
 #### Site
 Lieu géographique cohérent comportant du patrimoine bâti et disposant d’une dénomination usuelle commune (il fait sens commun).
 Il est autant que possible indépendant d’une approche métier, organisationnelle ou administrative afin d'assurer sa stabilité (délimitation, dénomination).
