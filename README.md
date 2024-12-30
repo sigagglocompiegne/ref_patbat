@@ -56,4 +56,4 @@ Les événement relatifs aux informations métiers attachées au référentiel n
 - changement usage de locaux
 - ajout nouvel usage de locaux
 - suppression usage de locaux
-- tout chgangement engendrant un changement de M57
+- changement de catégorie de fonction induisant un changement de M57 (à détailler)
