@@ -47,7 +47,7 @@ Cette classe répond à la volonté de ne pas avoir à descendre le modèle à l
 - Un bâtiment peut être inclus dans aucun à plusieurs sous-sites
 
 ### Cycle de vie
-Sont identifiées ici les seuls événements ayant une incidence sur le référentiel.
+Seuls les événements ayant une incidence sur le référentiel et un besoin d'information transverse à l'ensemble des SI métiers sont identifiés.
 Les événement relatifs aux informations métiers attachées au référentiel ne rentrent pas ce cadre.
 - achat de patrimoine
 - vente de patrimoine
