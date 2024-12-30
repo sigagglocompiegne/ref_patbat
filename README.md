@@ -55,6 +55,7 @@ Ce qui relève du cycle de vie strict du patrimoine bâti :
 - patrimoine : achat | vente |
 - batiment : construction | démolition | division vente de patrimoine
 - usage des locaux : changement d'usage | nouvel usage | suppression d'un usage
+
 _(- changement de catégorie de fonction induisant un changement de M57 (à détailler))_
 
 Les changements hors référentiel :
