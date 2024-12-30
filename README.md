@@ -32,7 +32,7 @@ Construction souterraine et/ou au-dessus du sol, ayant pour objectif d'être per
 Un bâtiment possède a minima un accès depuis l’extérieur.
 Dans la mesure du possible, un bâtiment est distinct d’un autre dès lors qu’il est impossible de circuler entre eux.
 
-_NB : La définition est héritée celle du CNIG à la suite dess travaux du projet de Référentiel National des Bâtiments (RNB)_
+_NB : La définition est héritée de celle du CNIG à la suite dess travaux du projet de Référentiel National des Bâtiments (RNB)_
 
 #### Unité fonctionnelle
 Ensemble de locaux / cellules d'un bâtiment partageant une fonction commune.
