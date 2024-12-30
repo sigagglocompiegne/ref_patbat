@@ -64,5 +64,6 @@ Ce qui relève du cycle de vie du patrimoine bâti :
 Les changements hors du cycle de vie du patrimoine bâti
 - changement de “référent”/contact
 - info rapportées
-* changement d'adresse
-* changement de parcelles
+
+  - changement d'adresse
+  - changement de parcelles
