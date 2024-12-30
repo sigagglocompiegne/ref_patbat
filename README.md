@@ -16,7 +16,8 @@ Les objectifs poursuivis sont de
 - idéalement, étudier l'hypothèse d'intégration automatisée du référentiel et sa mise à jour, dans les progiciels métiers et la mettre en oeuvre
 
 ## Classes
-Le modèle de données description du patrimoine bâti s'organise autour de 3 classes principales et 1 optionnelle.
+Le modèle de données decrivant le patrimoine bâti s'organise autour de 3 classes principales et 1 optionnelle.
+_D'autre classes sont intégrées pour gérer des informations métiers attachées au référentiel_
 
 ### Définitions
 #### Site
@@ -44,6 +45,8 @@ Cette classe répond à la volonté de ne pas avoir à descendre le modèle à l
 - Un bâtiment peut être inclus dans aucun à plusieurs sous-sites
 
 ### Cycle de vie
+Sont identifiées ici les seuls événements ayant une incidence sur le référentiel.
+Les événement relatifs aux informations métiers attachées au référentiel ne rentrent pas ce cadre.
 - achat de patrimoine
 - vente de patrimoine
 - démolition batiment
