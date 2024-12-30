@@ -37,6 +37,10 @@ Ensemble de locaux / cellules d'un bâtiment partageant une fonction commune.
 Cette classe répond à la volonté de ne pas avoir à descendre le modèle à l'échelle de chaque local.
 
 ### Relations
+- Un sous site doit être inclus dans un site
+- Un bâtiment doit être inclus dans un site
+- Une unité fonctionnelle doit être incluse dans un bâtiment
+- Un bâtiment peut être inclus dans aucun à plusieurs sous-sites
 
 ### Cycle de vie
 - achat de patrimoine
