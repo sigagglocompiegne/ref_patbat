@@ -16,25 +16,29 @@ Les objectifs poursuivis sont de
 - idéalement, étudier l'hypothèse d'intégration automatisée du référentiel et sa mise à jour, dans les progiciels métiers et la mettre en oeuvre
 
 ## Classes
-Modèle de description du patrimoine bâti s'organise autour de 3 classes principales et 1 optionnelle
+Le modèle de données description du patrimoine bâti s'organise autour de 3 classes principales et 1 optionnelle.
 
-### Site
-Lieu géographique cohérent comportant du patrimoine bâti et disposant d’une dénomination usuelle commune (de référence et donc indépendante d’une approche métier)
-+ critere géo qui fait sens. garder approche spatiale stable et déliée des approches organisationnelles / administratives
+### Définitions
+#### Site
+Lieu géographique cohérent comportant du patrimoine bâti et disposant d’une dénomination usuelle commune (il fait sens commun).
+Il est autant que possible indépendant d’une approche métier, organisationnelle ou administrative afin d'assurer sa stabilité (délimitation, dénomination).
 
-### Sous-site (optionnel)
-Sous ensemble spécifique d’un site 
-cas d’usage : adresse postale différente, segmentation d’un site
+#### Sous-site (optionnel)
+Classe optionnelle permettant si nécessaire de définir un sous ensemble spécifique d’un site.
 
-### Bâtiment
-Construction souterraine et/ou au-dessus du sol, ayant pour objectif d'être permanente, pour abriter des humains ou des activités humaines. Un bâtiment possède a minima un accès depuis l’extérieur. Dans la mesure du possible, un bâtiment est distinct d’un autre dès lors qu’il est impossible de circuler entre eux
-Reprise de la définition du CNIG issue des travaux du projet Référentiel National des Bâtiments (RNB)
+#### Bâtiment
+Construction souterraine et/ou au-dessus du sol, ayant pour objectif d'être permanente, pour abriter des humains ou des activités humaines.
+Un bâtiment possède a minima un accès depuis l’extérieur.
+Dans la mesure du possible, un bâtiment est distinct d’un autre dès lors qu’il est impossible de circuler entre eux
+_NB : Définition reprise de la définition du CNIG issue des travaux du projet Référentiel National des Bâtiments (RNB)_
 
-### unité fonctionnelle
-Ensemble de locaux / cellules partageant une fonction commune 
-UF classes est un ensemble de locaux d’un batiment ayant une fonction commune de lieu de classe
+#### Unité fonctionnelle
+Ensemble de locaux / cellules d'un bâtiment partageant une fonction commune.
+Cette classe répond à la volonté de ne pas avoir à descendre le modèle à l'échelle de chaque local.
 
-## Cycle de vie
+### Relations
+
+### Cycle de vie
 - achat de patrimoine
 - vente de patrimoine
 - démolition batiment
