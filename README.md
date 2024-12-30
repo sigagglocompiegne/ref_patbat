@@ -49,6 +49,8 @@ Cette classe répond à la volonté de ne pas avoir à descendre le modèle à l
 ### Cycle de vie
 Seuls les événements ayant une incidence sur le référentiel et un besoin d'information transverse à l'ensemble des SI métiers sont identifiés.
 Les événement relatifs aux informations métiers attachées au référentiel ne rentrent pas ce cadre.
+
+Ce qui relève du cycle de vie du patrimoine bâti :
 - achat de patrimoine
 - vente de patrimoine
 - démolition batiment
@@ -58,3 +60,9 @@ Les événement relatifs aux informations métiers attachées au référentiel n
 - ajout nouvel usage de locaux
 - suppression usage de locaux
 - changement de catégorie de fonction induisant un changement de M57 (à détailler)
+
+Les changements hors du cycle de vie du patrimoine bâti
+- changement de “référent”/contact
+- info rapportées
+* changement d'adresse
+* changement de parcelles
