@@ -30,8 +30,9 @@ Classe optionnelle permettant si nécessaire de définir un sous ensemble spéci
 #### Bâtiment
 Construction souterraine et/ou au-dessus du sol, ayant pour objectif d'être permanente, pour abriter des humains ou des activités humaines.
 Un bâtiment possède a minima un accès depuis l’extérieur.
-Dans la mesure du possible, un bâtiment est distinct d’un autre dès lors qu’il est impossible de circuler entre eux
-_NB : Définition reprise de la définition du CNIG issue des travaux du projet Référentiel National des Bâtiments (RNB)_
+Dans la mesure du possible, un bâtiment est distinct d’un autre dès lors qu’il est impossible de circuler entre eux.
+
+_NB : La définition est héritée celle du CNIG à la suite dess travaux du projet de Référentiel National des Bâtiments (RNB)_
 
 #### Unité fonctionnelle
 Ensemble de locaux / cellules d'un bâtiment partageant une fonction commune.
