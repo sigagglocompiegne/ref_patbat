@@ -18,9 +18,7 @@ Les objectifs poursuivis sont de
 
 ## Classes
 Le modèle de données decrivant le patrimoine bâti s'organise autour de 3 classes principales et 1 optionnelle.
-
 _D'autre classes sont intégrées pour gérer des informations métiers attachées au référentiel_
-
 _Classe pour gérer les contacts
 
 ### Définitions
@@ -45,7 +43,7 @@ Les événement relatifs aux informations métiers attachées au référentiel n
 
 Ce qui relève du cycle de vie strict du patrimoine bâti :
 - patrimoine : achat | vente |
-- batiment : construction | démolition | division vente de patrimoine
+- batiment : construction | démolition | division
 - usage des locaux : changement d'usage | nouvel usage | suppression d'un usage
 
 _(- changement de catégorie de fonction induisant un changement de M57 (à détailler))_
