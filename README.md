@@ -4,7 +4,8 @@
 
 ## Changelog
 - 19/12/2024 : initialisation de la documentation
-
+- 03/04/2025 : Ajout volet classes, définitions, relations, cycle de vie
+- 
 ## Désignation
 Le périmètre du référentiel porte sur le patrimoine des collectivités locales en situation de propriété ou d'exploitation de tout ou partie des locaux d'un batiment.
 
@@ -17,7 +18,9 @@ Les objectifs poursuivis sont de
 
 ## Classes
 Le modèle de données decrivant le patrimoine bâti s'organise autour de 3 classes principales et 1 optionnelle.
+
 _D'autre classes sont intégrées pour gérer des informations métiers attachées au référentiel_
+
 _Classe pour gérer les contacts
 
 ### Définitions
