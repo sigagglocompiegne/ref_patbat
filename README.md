@@ -18,8 +18,7 @@ Les objectifs poursuivis sont de
 
 ## Classes
 Le modèle de données decrivant le patrimoine bâti s'organise autour de 3 classes principales et 1 optionnelle.
-_D'autres classes sont intégrées pour gérer des informations métiers attachées au référentiel_
-_Classe pour gérer les contacts
+D'autres classes sont intégrées pour gérer des informations métiers attachées au référentiel (ex : classe pour gérer les contacts)
 
 ### Définitions
 
