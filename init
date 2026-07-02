@@ -1,30 +1,93 @@
-drop schema if exists r_patbat;
+drop schema if exists r_patbat cascade;
 
 create schema r_patbat;
 
-create table r_patbat.geo_bati( -- sous-categorie, contacts, orga_roles en table de relations
-	id_bati serial primary key,
-	adresse varchar,
-	categorie varchar,
-	sous_categorie varchar,
-	etat varchar,
-	insee varchar,
-	commune varchar,
-	cadastre varchar,
-	id_site varchar,
-	id_ssite varchar
+create table r_patbat.lt_etat(
+	code varchar primary key,
+	valeur varchar 
 );
+comment on table r_patbat.lt_etat is 'Table de valeur des etat des bâtiments';
+comment on column r_patbat.lt_etat.code is 'Code de l''etat des bâtiments';
+comment on column r_patbat.lt_etat.valeur is 'Valeur de l''etat des bâtiments';
 
-comment on table r_patbat.geo_bati is 'Classe géographique stockant les informations des bâtiments';
-comment on column r_patbat.geo_bati.id_bati is 'Identifiant unique du bâtiment';
+create table r_patbat.lt_categorie(
+	code varchar primary key,
+	valeur varchar
+);
+comment on table r_patbat.lt_categorie is 'Table de valeur des categories d''entites';
+comment on column r_patbat.lt_categorie.code is 'Code de la categorie';
+comment on column r_patbat.lt_categorie.valeur is 'Valeur de la catégorie';
+
+create table r_patbat.an_entite( -- sous-categorie, contacts, orga_roles en table de relations
+	id_entite serial primary key,
+	ref_code varchar,
+	nom_court varchar,
+	nom_long varchar,
+	
+	adresse varchar, --lien base adresse, impossible a saisir pour une UF 
+	categorie varchar, --talbe de valeur
+	insee varchar, -- lien geo_commune
+	commune varchar, -- lien geo_commune
+	cadastre varchar,
+	
+	constraint fk_an_entite_categorie foreign key(categorie) references r_patbat.lt_categorie(code)
+);
+comment on table r_patbat.an_entite is 'Classe attributaire regroupant les informations de toutes les entités du référentiel patrimoine bâtiment';
+comment on column r_patbat.an_entite.id_entite is 'Identifiant unique de l''entité ';
+
+
+create table r_patbat.geo_site(
+	id_entite int primary key,
+	
+	constraint fk_geo_site_entite foreign key (id_entite) references r_patbat.an_entite(id_entite)
+);
+comment on table r_patbat.geo_site is 'Classe géographique regroupant les informations de toutes les entités étant des sites';
+comment on column r_patbat.geo_site.id_entite is 'Identifiant de l''entité';
+
+
+create table r_patbat.geo_ssite(
+	id_entite int primary key,
+	id_site int not null,
+	
+	constraint fk_geo_ssite_entite foreign key (id_entite) references r_patbat.an_entite(id_entite),
+	constraint fk_geo_ssite_site foreign key (id_site) references r_patbat.geo_site(id_entite)
+);
+comment on table r_patbat.geo_ssite is 'Classe géographique regroupant les informations de toutes les entités étant des sous-sites';
+comment on column r_patbat.geo_ssite.id_entite is 'Identifiant de l''entité';
+
+
+create table r_patbat.geo_bati(
+	id_entite int primary key,
+	id_site int not null,
+	id_ssite int,
+	etat varchar, --table de valeurs 
+	
+	constraint fk_geo_bati_entite foreign key (id_entite) references r_patbat.an_entite(id_entite),
+	constraint fk_geo_bati_site foreign key (id_site) references r_patbat.geo_site(id_entite),
+	constraint fk_geo_bati_ssite foreign key (id_ssite) references r_patbat.geo_ssite(id_entite),
+	constraint fk_geo_bati_etat foreign key (etat) references r_patbat.lt_etat(code)
+);
+comment on table r_patbat.geo_bati is 'Classe géographique regroupant les informations de toutes les entités étant des bâtiments';
+comment on column r_patbat.geo_bati.id_entite is 'Identifiant de l''entité';
+
+
+create table r_patbat.geo_unite_fonc(
+	id_entite int primary key,
+	id_bati int not null,
+	
+	constraint fk_geo_unite_fonc_entite foreign key (id_entite) references r_patbat.an_entite(id_entite),
+	constraint fk_geo_unite_fonc_bati foreign key (id_bati) references r_patbat.geo_bati(id_entite)
+);
+comment on table r_patbat.geo_unite_fonc is 'Classe géographique regroupant les informations de toutes les entités étant des unités fonctionnelles';
+comment on column r_patbat.geo_unite_fonc.id_entite is 'Identifiant de l''entité';
+
 
 -- Table des fonctions de contacts (Liste de valeurs)
 CREATE TABLE r_patbat.lt_fonction (
     code VARCHAR(10) PRIMARY KEY,
     valeur VARCHAR(100) NOT NULL
 );
-
-comment on table r_patbat.lt_fonction is 'Classe de liste de valeurs des focntions des contacts'
+comment on table r_patbat.lt_fonction is 'Classe de liste de valeurs des focntions des contacts';
 comment on column r_patbat.lt_fonction.code is 'Code de la fonction du contact';
 comment on column r_patbat.lt_fonction.valeur is 'Valeur de la fonction du contact';
 
@@ -46,18 +109,103 @@ comment on column r_patbat.an_contact.tel is 'Numéro de téléphone du contact'
 comment on column r_patbat.an_contact.email is 'Email du contact';
 comment on column r_patbat.an_contact.organisme is 'Organisme du contact';
 
+
 -- Table de relation entre les contacts et les fonctions de contacts 
-CREATE TABLE r_patbat.lk_contact (
-    id_batiment INT,
+create table r_patbat.lk_contact (
+    id_entite INT,
     id_contact INT,
     code_fonction VARCHAR,
-    CONSTRAINT pk_lk_contact PRIMARY KEY (id_batiment, id_contact, code_fonction),
-    CONSTRAINT fk_lk_contact_id_bat FOREIGN KEY (id_batiment) REFERENCES r_patbat.geo_bati(id_bati), 
-    CONSTRAINT fk_lk_contact_id_cont FOREIGN KEY (id_contact) REFERENCES r_patbat.an_contact(id_contact), 
-    CONSTRAINT fk_lk_contact_fonction FOREIGN KEY (code_fonction) REFERENCES r_patbat.lt_fonction(code)
+    
+    constraint pk_lk_contact primary key (id_entite, id_contact, code_fonction),
+    constraint fk_lk_contact_id_bat foreign key (id_entite) references r_patbat.an_entite(id_entite), 
+    constraint fk_lk_contact_id_cont foreign key (id_contact) references r_patbat.an_contact(id_contact), 
+    constraint fk_lk_contact_fonction foreign key (code_fonction) references r_patbat.lt_fonction(code)
 );
-
-comment on table r_patbat.lk_contact is 'Classe de relation entre les bâtiments, fonction des contacts, et informations des contacts';
-comment on column r_patbat.lk_contact.id_batiment is 'Identifiant unique du bâtiment';
+comment on table r_patbat.lk_contact is 'Classe de relation entre les entités, fonction des contacts, et informations des contacts';
+comment on column r_patbat.lk_contact.id_entite is 'Identifiant unique de l''entité';
 comment on column r_patbat.lk_contact.id_contact is 'Identifiant du contact';
 comment on column r_patbat.lk_contact.code_fonction is 'Fonction du contact';
+
+create table r_patbat.lt_role(
+	code varchar primary key,
+	valeur varchar not null
+);
+comment on table r_patbat.lt_role is 'Table de valeur des rôles des organisations';
+comment on column r_patbat.lt_role.code is 'Code du rôle';
+comment on column r_patbat.lt_role.valeur is 'Valeur du rôle';
+
+create table r_patbat.an_orga(
+	id_orga serial primary key,
+	nom varchar
+);
+comment on table r_patbat.an_orga is 'Classe attributaire décrivant les organisations';
+comment on column r_patbat.an_orga.id_orga is 'Identifiant unique de l''organisation';
+
+create table r_patbat.lk_orga_role(
+	id_entite int,
+	id_orga int,
+	code_role varchar,
+	
+	constraint pk_lk_orga_role primary key (id_entite,id_orga,code_role),
+	constraint fk_lk_orga_role_entite foreign key(id_entite) references r_patbat.an_entite(id_entite),
+	constraint fk_lk_orga_role_orga foreign key(id_orga) references r_patbat.an_orga(id_orga),
+	constraint fk_lk_orga_role_code foreign key(code_role) references r_patbat.lt_role(code)
+);
+comment on table r_patbat.lk_orga_role is 'Classe de relation entre les organisations, les rôles qu''elles peuvent avoir et les entites';
+comment on column r_patbat.lk_orga_role.id_entite is 'Identifiant de l''entité';
+comment on column r_patbat.lk_orga_role.id_orga is 'Identifiant de l''organisation';
+comment on column r_patbat.lk_orga_role.code_role is 'Code du rôle de l''organisation';
+
+create table r_patbat.lt_sous_cat(
+	code varchar primary key,
+	valeur varchar
+);
+comment on table r_patbat.lt_sous_cat is 'Table de valeur des sous-categories';
+comment on column r_patbat.lt_sous_cat.code is 'Code de la sous-categorie';
+comment on column r_patbat.lt_sous_cat.valeur is 'Valeur de la sous-catégorie';
+
+create table r_patbat.lk_sous_cat(
+	id_entite int,
+	code_sous_cat varchar,
+	
+	constraint fk_lk_sous_cat foreign key(id_entite) references r_patbat.an_entite(id_entite)
+);
+comment on table r_patbat.lk_sous_cat is 'Classe de relation entre les sous-categories et les entites';
+comment on column r_patbat.lk_sous_cat.id_entite is 'Identifiant de l''entite';
+comment on column r_patbat.lk_sous_cat.code_sous_cat is 'Code de la sous-categorie';
+
+create table r_patbat.lt_type_doc(	
+	code varchar primary key,
+	valeur varchar not null
+);
+comment on table r_patbat.lt_type_doc is 'Table de valeur des types de documents';
+comment on column r_patbat.lt_type_doc.code is 'Code du type de document';
+comment on column r_patbat.lt_type_doc.valeur is 'Valeur du type de document';
+
+create table r_patbat.an_doc(
+	id_doc serial primary key,
+	nom_doc varchar not null, 
+	chemin_acces varchar not null,
+	date_doc timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	type_doc varchar,
+	
+	constraint fk_an_doc_type foreign key(type_doc) references r_patbat.lt_type_doc(code)
+);
+comment on table r_patbat.an_doc is 'Classe attributaire stockant les informations des documents';
+comment on column r_patbat.an_doc.id_doc is 'Identifiant unique du document';
+comment on column r_patbat.an_doc.nom_doc is 'Nom du document';
+comment on column r_patbat.an_doc.chemin_acces is 'Chemin pour acceder au document (URL,chemin d''acces,...)';
+comment on column r_patbat.an_doc.date_doc is 'Date d''import du document';
+comment on column r_patbat.an_doc.type_doc is 'Type du document';
+
+create table r_patbat.lk_doc(
+	id_entite int,
+	id_doc int,
+	
+	constraint pk_lk_doc primary key(id_entite,id_doc),
+	constraint fk_lk_entite foreign key(id_entite) references r_patbat.an_entite(id_entite),
+	constraint fk_lk_doc foreign key(id_doc) references r_patbat.an_doc(id_doc)
+);
+comment on table r_patbat.lk_doc is 'Classe de relation entre les entites et les documents';
+comment on column r_patbat.lk_doc.id_entite is 'Identifiant de l''entite';
+comment on column r_patbat.lk_doc.id_doc is 'identifiant du document';
