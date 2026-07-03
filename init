@@ -18,17 +18,25 @@ comment on table r_patbat.lt_categorie is 'Table de valeur des categories d''ent
 comment on column r_patbat.lt_categorie.code is 'Code de la categorie';
 comment on column r_patbat.lt_categorie.valeur is 'Valeur de la catégorie';
 
-create table r_patbat.an_entite( -- sous-categorie, contacts, orga_roles en table de relations
+create table r_patbat.an_entite( -- sous-categorie, contacts, orga_roles, pièces jointes, adresses en table de relations
 	id_entite serial primary key,
+	type_entite varchar, -- site, UF, ...
 	ref_code varchar,
 	nom_court varchar,
 	nom_long varchar,
-	
-	adresse varchar, --lien base adresse, impossible a saisir pour une UF 
+	superficie int, -- établir un cadre, harmonisation
 	categorie varchar, --talbe de valeur
-	insee varchar, -- lien geo_commune
+	type_etablissement VARCHAR[], -- Contiendra ['ERP'], ['ERT'] ou ['ERP', 'ERT']
+    parcelles VARCHAR[],           -- Contiendra les IDs des parcelles, ex: ['000AB01', '000AB02']
+	insee varchar, -- lien geo_commune	
 	commune varchar, -- lien geo_commune
 	cadastre varchar,
+	observ varchar,
+	op_sai varchar,
+	op_maj varchar,
+	dbinsert timestamp with time zone,
+	dbupdate timestamp with time zone,
+	dbstatut varchar,
 	
 	constraint fk_an_entite_categorie foreign key(categorie) references r_patbat.lt_categorie(code)
 );
@@ -38,6 +46,7 @@ comment on column r_patbat.an_entite.id_entite is 'Identifiant unique de l''enti
 
 create table r_patbat.geo_site(
 	id_entite int primary key,
+	geom geometry(MultiPolygon, 2154),
 	
 	constraint fk_geo_site_entite foreign key (id_entite) references r_patbat.an_entite(id_entite)
 );
@@ -47,7 +56,8 @@ comment on column r_patbat.geo_site.id_entite is 'Identifiant de l''entité';
 
 create table r_patbat.geo_ssite(
 	id_entite int primary key,
-	id_site int not null,
+	id_site int,
+	geom geometry(MultiPolygon, 2154),
 	
 	constraint fk_geo_ssite_entite foreign key (id_entite) references r_patbat.an_entite(id_entite),
 	constraint fk_geo_ssite_site foreign key (id_site) references r_patbat.geo_site(id_entite)
@@ -58,9 +68,10 @@ comment on column r_patbat.geo_ssite.id_entite is 'Identifiant de l''entité';
 
 create table r_patbat.geo_bati(
 	id_entite int primary key,
-	id_site int not null,
+	id_site int ,
 	id_ssite int,
 	etat varchar, --table de valeurs 
+	geom geometry(MultiPolygon, 2154),	
 	
 	constraint fk_geo_bati_entite foreign key (id_entite) references r_patbat.an_entite(id_entite),
 	constraint fk_geo_bati_site foreign key (id_site) references r_patbat.geo_site(id_entite),
@@ -73,7 +84,8 @@ comment on column r_patbat.geo_bati.id_entite is 'Identifiant de l''entité';
 
 create table r_patbat.geo_unite_fonc(
 	id_entite int primary key,
-	id_bati int not null,
+	id_bati int,
+	geom geometry(Point, 2154),
 	
 	constraint fk_geo_unite_fonc_entite foreign key (id_entite) references r_patbat.an_entite(id_entite),
 	constraint fk_geo_unite_fonc_bati foreign key (id_bati) references r_patbat.geo_bati(id_entite)
@@ -185,7 +197,7 @@ comment on column r_patbat.lt_type_doc.valeur is 'Valeur du type de document';
 create table r_patbat.an_doc(
 	id_doc serial primary key,
 	nom_doc varchar not null, 
-	chemin_acces varchar not null,
+	pointeur varchar not null,
 	date_doc timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	type_doc varchar,
 	
@@ -194,7 +206,7 @@ create table r_patbat.an_doc(
 comment on table r_patbat.an_doc is 'Classe attributaire stockant les informations des documents';
 comment on column r_patbat.an_doc.id_doc is 'Identifiant unique du document';
 comment on column r_patbat.an_doc.nom_doc is 'Nom du document';
-comment on column r_patbat.an_doc.chemin_acces is 'Chemin pour acceder au document (URL,chemin d''acces,...)';
+comment on column r_patbat.an_doc.pointeur is 'Chemin pour acceder au document (URL,chemin d''acces,...)';
 comment on column r_patbat.an_doc.date_doc is 'Date d''import du document';
 comment on column r_patbat.an_doc.type_doc is 'Type du document';
 
@@ -209,3 +221,346 @@ create table r_patbat.lk_doc(
 comment on table r_patbat.lk_doc is 'Classe de relation entre les entites et les documents';
 comment on column r_patbat.lk_doc.id_entite is 'Identifiant de l''entite';
 comment on column r_patbat.lk_doc.id_doc is 'identifiant du document';
+
+create table r_patbat.an_adresse(
+	id_adresse int primary key,
+	nom varchar
+);
+comment on table r_patbat.an_adresse is 'Classe attributaire regroupant les informations sur les adresses';
+comment on column r_patbat.an_adresse.id_adresse is 'Identifiant unique de l''adressse';
+comment on column r_patbat.an_adresse.nom is 'Nom de l''adresse';
+
+
+create table r_patbat.lk_adresse(
+	id_entite int,
+	id_adresse int,
+	
+	constraint pk_lk_adresse primary key(id_entite,id_adresse),
+	constraint fk_lk_adresse_entite foreign key(id_entite) references r_patbat.an_entite(id_entite),
+	constraint fk_lk_adresse_an_adresse foreign key(id_adresse) references r_patbat.an_adresse(id_adresse)
+);
+comment on table r_patbat.lk_adresse is 'Table de relation entre les entites et les adresses';
+comment on column r_patbat.lk_adresse.id_entite is 'Identifiant de l''entite';
+comment on column r_patbat.lk_adresse.id_adresse is 'Identifiant de l''adresse';
+
+-----------------------------------------------------------------------------------------
+--																					   --
+--								GESTION TABLES GÉOGRAPHIQUES						   --
+-- 																					   --
+-----------------------------------------------------------------------------------------
+
+
+-----------------------------------------------------------------------------------------
+--                                       SITE                                          --
+-----------------------------------------------------------------------------------------
+
+
+create or replace view r_patbat.geo_v_patbat_site as 
+	select e.ref_code,
+	e.id_entite,
+	e.nom_court,
+	e.nom_long,
+	e.superficie,
+	e.categorie,
+	e.observ,
+	e.type_etablissement,
+	s.geom
+	from r_patbat.an_entite e
+ 	join r_patbat.geo_site s on e.id_entite = s.id_entite;
+
+CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_site()
+RETURNS TRIGGER AS $$
+DECLARE
+    -- Déclaration de la variable pour stocker l'ID généré
+    nouvel_id INT;
+BEGIN
+    -- ==========================================
+    -- CAS 1 : INSERTION (Création d'un site)
+    -- ==========================================
+    IF TG_OP = 'INSERT' THEN
+        -- 1. Insertion dans la table entite avec récupération de l'ID
+        INSERT INTO r_patbat.an_entite (
+            type_entite,ref_code, nom_court, nom_long, superficie, categorie, observ, type_etablissement
+        )
+        VALUES (
+            'Site',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement
+        )
+        RETURNING id_entite INTO nouvel_id; -- On met l'id_entite crée automatiquement dans nouvel_id
+
+        -- 2. Insertion dans la table site avec l'ID stocké dans la variable
+        INSERT INTO r_patbat.geo_site (id_entite, geom)
+        VALUES (nouvel_id, NEW.geom);
+
+        RETURN NEW;
+
+    -- ==========================================
+    -- CAS 2 : MISE À JOUR (Modification)
+    -- ==========================================
+    ELSIF TG_OP = 'UPDATE' THEN
+        UPDATE r_patbat.an_entite
+        SET ref_code = NEW.ref_code,
+            nom_court = NEW.nom_court,
+            nom_long = NEW.nom_long,
+            superficie = NEW.superficie,
+            categorie = NEW.categorie,
+            observ = NEW.observ,
+			type_etablissement = NEW.type_etablissement
+        WHERE id_entite = OLD.id_entite;
+
+        UPDATE r_patbat.geo_site
+        SET geom = NEW.geom
+        WHERE id_entite = OLD.id_entite;
+
+        RETURN NEW;
+
+    -- ==========================================
+    -- CAS 3 : SUPPRESSION
+    -- ==========================================
+    ELSIF TG_OP = 'DELETE' THEN
+        DELETE FROM r_patbat.an_entite WHERE id_entite = OLD.id_entite;
+        RETURN OLD;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE or replace TRIGGER t_t1_gestion_v_site
+INSTEAD OF INSERT OR UPDATE OR DELETE ON r_patbat.geo_v_patbat_site
+FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_gestion_v_site();
+
+
+-----------------------------------------------------------------------------------------
+--                                     SOUS-SITE                                       --
+-----------------------------------------------------------------------------------------
+
+create or replace view r_patbat.geo_v_patbat_ssite as 
+	select e.ref_code,
+	e.id_entite,
+	e.nom_court,
+	e.nom_long,
+	e.superficie,
+	e.categorie,
+	e.observ,
+	e.type_etablissement,
+	ss.geom
+	from r_patbat.an_entite e
+ 	join r_patbat.geo_ssite ss on e.id_entite = ss.id_entite;
+
+CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_ssite()
+RETURNS TRIGGER AS $$
+DECLARE
+    -- Déclaration de la variable pour stocker l'ID généré
+    nouvel_id INT;
+BEGIN
+    -- ==========================================
+    -- CAS 1 : INSERTION (Création d'un site)
+    -- ==========================================
+    IF TG_OP = 'INSERT' THEN
+        -- 1. Insertion dans la table entite avec récupération de l'ID
+        INSERT INTO r_patbat.an_entite (
+            type_entite,ref_code, nom_court, nom_long, superficie, categorie, observ, type_etablissement
+        )
+        VALUES (
+            'Sous-Site',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement
+        )
+        RETURNING id_entite INTO nouvel_id; -- On met l'id_entite crée automatiquement dans nouvel_id
+
+        -- 2. Insertion dans la table site avec l'ID stocké dans la variable
+        INSERT INTO r_patbat.geo_ssite (id_entite, geom)
+        VALUES (nouvel_id, NEW.geom);
+
+        RETURN NEW;
+
+    -- ==========================================
+    -- CAS 2 : MISE À JOUR (Modification)
+    -- ==========================================
+    ELSIF TG_OP = 'UPDATE' THEN
+        UPDATE r_patbat.an_entite
+        SET ref_code = NEW.ref_code,
+            nom_court = NEW.nom_court,
+            nom_long = NEW.nom_long,
+            superficie = NEW.superficie,
+            categorie = NEW.categorie,
+            observ = NEW.observ,
+			type_etablissement = NEW.type_etablissement
+        WHERE id_entite = OLD.id_entite;
+
+        UPDATE r_patbat.geo_ssite
+        SET geom = NEW.geom
+        WHERE id_entite = OLD.id_entite;
+
+        RETURN NEW;
+
+    -- ==========================================
+    -- CAS 3 : SUPPRESSION
+    -- ==========================================
+    ELSIF TG_OP = 'DELETE' THEN
+        DELETE FROM r_patbat.an_entite WHERE id_entite = OLD.id_entite;
+        RETURN OLD;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE or replace TRIGGER t_t1_gestion_v_ssite
+INSTEAD OF INSERT OR UPDATE OR DELETE ON r_patbat.geo_v_patbat_ssite
+FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_gestion_v_ssite();
+
+
+
+-----------------------------------------------------------------------------------------
+--                                     BATIMENT                                        --
+-----------------------------------------------------------------------------------------
+
+create or replace view r_patbat.geo_v_patbat_bati as 
+	select e.ref_code,
+	e.id_entite,
+	e.nom_court,
+	e.nom_long,
+	e.superficie,
+	e.categorie,
+	e.observ,
+	e.type_etablissement,
+	b.geom,
+	b.etat
+	from r_patbat.an_entite e
+ 	join r_patbat.geo_bati b on e.id_entite = b.id_entite;
+
+CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_bati()
+RETURNS TRIGGER AS $$
+DECLARE
+    -- Déclaration de la variable pour stocker l'ID généré
+    nouvel_id INT;
+BEGIN
+    -- ==========================================
+    -- CAS 1 : INSERTION (Création d'un site)
+    -- ==========================================
+    IF TG_OP = 'INSERT' THEN
+        -- 1. Insertion dans la table entite avec récupération de l'ID
+        INSERT INTO r_patbat.an_entite (
+            type_entite,ref_code, nom_court, nom_long, superficie, categorie, observ, type_etablissement
+        )
+        VALUES (
+            'Bâtiment',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement
+        )
+        RETURNING id_entite INTO nouvel_id; -- On met l'id_entite crée automatiquement dans nouvel_id
+
+        -- 2. Insertion dans la table site avec l'ID stocké dans la variable
+        INSERT INTO r_patbat.geo_bati (id_entite, geom, etat)
+        VALUES (nouvel_id, NEW.geom, NEW.etat);
+
+        RETURN NEW;
+
+    -- ==========================================
+    -- CAS 2 : MISE À JOUR (Modification)
+    -- ==========================================
+    ELSIF TG_OP = 'UPDATE' THEN
+        UPDATE r_patbat.an_entite
+        SET ref_code = NEW.ref_code,
+            nom_court = NEW.nom_court,
+            nom_long = NEW.nom_long,
+            superficie = NEW.superficie,
+            categorie = NEW.categorie,
+            observ = NEW.observ,
+			type_etablissement = NEW.type_etablissement
+        WHERE id_entite = OLD.id_entite;
+
+        UPDATE r_patbat.geo_bati
+        SET geom = NEW.geom, etat = NEW.etat
+        WHERE id_entite = OLD.id_entite;
+
+        RETURN NEW;
+
+    -- ==========================================
+    -- CAS 3 : SUPPRESSION
+    -- ==========================================
+    ELSIF TG_OP = 'DELETE' THEN
+        DELETE FROM r_patbat.an_entite WHERE id_entite = OLD.id_entite;
+        RETURN OLD;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE or replace TRIGGER t_t1_gestion_v_bati
+INSTEAD OF INSERT OR UPDATE OR DELETE ON r_patbat.geo_v_patbat_bati
+FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_gestion_v_bati();
+
+
+
+
+-----------------------------------------------------------------------------------------
+--                                        UF                                           --
+-----------------------------------------------------------------------------------------
+
+create or replace view r_patbat.geo_v_patbat_unite_fonc as 
+	select e.ref_code,
+	e.id_entite,
+	e.nom_court,
+	e.nom_long,
+	e.superficie,
+	e.categorie,
+	e.observ,
+	e.type_etablissement,
+	uf.geom
+	from r_patbat.an_entite e
+ 	join r_patbat.geo_unite_fonc uf on e.id_entite = uf.id_entite;
+
+CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_unite_fonc()
+RETURNS TRIGGER AS $$
+DECLARE
+    -- Déclaration de la variable pour stocker l'ID généré
+    nouvel_id INT;
+BEGIN
+    -- ==========================================
+    -- CAS 1 : INSERTION (Création d'un site)
+    -- ==========================================
+    IF TG_OP = 'INSERT' THEN
+        -- 1. Insertion dans la table entite avec récupération de l'ID
+        INSERT INTO r_patbat.an_entite (
+            type_entite,ref_code, nom_court, nom_long, superficie, categorie, observ, type_etablissement
+        )
+        VALUES (
+            'Unité fonctionnelle',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement
+        )
+        RETURNING id_entite INTO nouvel_id; -- On met l'id_entite crée automatiquement dans nouvel_id
+
+        -- 2. Insertion dans la table site avec l'ID stocké dans la variable
+        INSERT INTO r_patbat.geo_unite_fonc (id_entite, geom)
+        VALUES (nouvel_id, NEW.geom);
+
+        RETURN NEW;
+
+    -- ==========================================
+    -- CAS 2 : MISE À JOUR (Modification)
+    -- ==========================================
+    ELSIF TG_OP = 'UPDATE' THEN
+        UPDATE r_patbat.an_entite
+        SET ref_code = NEW.ref_code,
+            nom_court = NEW.nom_court,
+            nom_long = NEW.nom_long,
+            superficie = NEW.superficie,
+            categorie = NEW.categorie,
+            observ = NEW.observ,
+			type_etablissement = NEW.type_etablissement
+        WHERE id_entite = OLD.id_entite;
+
+        UPDATE r_patbat.geo_unite_fonc
+        SET geom = NEW.geom
+        WHERE id_entite = OLD.id_entite;
+
+        RETURN NEW;
+
+    -- ==========================================
+    -- CAS 3 : SUPPRESSION
+    -- ==========================================
+    ELSIF TG_OP = 'DELETE' THEN
+        DELETE FROM r_patbat.an_entite WHERE id_entite = OLD.id_entite;
+        RETURN OLD;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE or replace TRIGGER t_t1_gestion_v_unite_fonc
+INSTEAD OF INSERT OR UPDATE OR DELETE ON r_patbat.geo_v_patbat_unite_fonc
+FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_gestion_v_unite_fonc();
+
+
+
