@@ -25,12 +25,12 @@ create table r_patbat.an_entite( -- sous-categorie, contacts, orga_roles, pièce
 	nom_court varchar,
 	nom_long varchar,
 	superficie int, -- établir un cadre, harmonisation
+	surface varchar, -- travail de consolidation de la nomenclature
 	categorie varchar, --talbe de valeur
 	type_etablissement VARCHAR[], -- Contiendra ['ERP'], ['ERT'] ou ['ERP', 'ERT']
     parcelles VARCHAR[],           -- Contiendra les IDs des parcelles, ex: ['000AB01', '000AB02']
 	insee varchar, -- lien geo_commune	
 	commune varchar, -- lien geo_commune
-	cadastre varchar,
 	observ varchar,
 	op_sai varchar,
 	op_maj varchar,
@@ -69,13 +69,11 @@ comment on column r_patbat.geo_ssite.id_entite is 'Identifiant de l''entité';
 create table r_patbat.geo_bati(
 	id_entite int primary key,
 	id_site int ,
-	id_ssite int,
 	etat varchar, --table de valeurs 
 	geom geometry(MultiPolygon, 2154),	
 	
 	constraint fk_geo_bati_entite foreign key (id_entite) references r_patbat.an_entite(id_entite),
 	constraint fk_geo_bati_site foreign key (id_site) references r_patbat.geo_site(id_entite),
-	constraint fk_geo_bati_ssite foreign key (id_ssite) references r_patbat.geo_ssite(id_entite),
 	constraint fk_geo_bati_etat foreign key (etat) references r_patbat.lt_etat(code)
 );
 comment on table r_patbat.geo_bati is 'Classe géographique regroupant les informations de toutes les entités étant des bâtiments';
@@ -84,11 +82,9 @@ comment on column r_patbat.geo_bati.id_entite is 'Identifiant de l''entité';
 
 create table r_patbat.geo_unite_fonc(
 	id_entite int primary key,
-	id_bati int,
 	geom geometry(Point, 2154),
 	
-	constraint fk_geo_unite_fonc_entite foreign key (id_entite) references r_patbat.an_entite(id_entite),
-	constraint fk_geo_unite_fonc_bati foreign key (id_bati) references r_patbat.geo_bati(id_entite)
+	constraint fk_geo_unite_fonc_entite foreign key (id_entite) references r_patbat.an_entite(id_entite)
 );
 comment on table r_patbat.geo_unite_fonc is 'Classe géographique regroupant les informations de toutes les entités étant des unités fonctionnelles';
 comment on column r_patbat.geo_unite_fonc.id_entite is 'Identifiant de l''entité';
@@ -261,6 +257,7 @@ create or replace view r_patbat.geo_v_patbat_site as
 	e.nom_court,
 	e.nom_long,
 	e.superficie,
+	e.surface,
 	e.categorie,
 	e.observ,
 	e.type_etablissement,
@@ -268,22 +265,30 @@ create or replace view r_patbat.geo_v_patbat_site as
 	from r_patbat.an_entite e
  	join r_patbat.geo_site s on e.id_entite = s.id_entite;
 
+COMMENT ON VIEW r_patbat.geo_v_patbat_site IS 'Vue regroupant les attrbuts de la table entité ainsi que la géométrie de la table site';
+
 CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_site()
 RETURNS TRIGGER AS $$
 DECLARE
     -- Déclaration de la variable pour stocker l'ID généré
     nouvel_id INT;
 BEGIN
+
+	-- test pour savoir si le site n'est pas superposé à un autre 
+	IF EXISTS (SELECT 1 FROM r_patbat.geo_site s WHERE (ST_Intersects(NEW.geom,s.geom) and not ST_Touches(NEW.geom,s.geom))) THEN 
+		RAISE EXCEPTION 'Le site se superpose à un autre';
+	END IF;
+
     -- ==========================================
     -- CAS 1 : INSERTION (Création d'un site)
     -- ==========================================
     IF TG_OP = 'INSERT' THEN
         -- 1. Insertion dans la table entite avec récupération de l'ID
         INSERT INTO r_patbat.an_entite (
-            type_entite,ref_code, nom_court, nom_long, superficie, categorie, observ, type_etablissement
+            type_entite,ref_code, nom_court, nom_long, superficie, surface, categorie, observ, type_etablissement
         )
         VALUES (
-            'Site',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement
+            'Site',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie,NEW.surface, NEW.categorie, NEW.observ, NEW.type_etablissement
         )
         RETURNING id_entite INTO nouvel_id; -- On met l'id_entite crée automatiquement dans nouvel_id
 
@@ -302,6 +307,7 @@ BEGIN
             nom_court = NEW.nom_court,
             nom_long = NEW.nom_long,
             superficie = NEW.superficie,
+			surface = NEW.surface,
             categorie = NEW.categorie,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement
@@ -323,10 +329,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+COMMENT ON FUNCTION r_patbat.ft_m_gestion_v_site IS 'Fonction qui transforme les opérations passées dans la vue de regroupement de données entre les tables entité et site, par des opérations directement dans ces tables';
+
 CREATE or replace TRIGGER t_t1_gestion_v_site
 INSTEAD OF INSERT OR UPDATE OR DELETE ON r_patbat.geo_v_patbat_site
 FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_gestion_v_site();
 
+COMMENT ON TRIGGER t_t1_gestion_v_site ON r_patbat.geo_v_patbat_site IS 'Trigger se déclanchant a l''insert, update, ou delete de la vue de regroupement de données entre les tables entité et site, appelant la fonction pour réaliser ces opérations directement dans les tables ';  
 
 -----------------------------------------------------------------------------------------
 --                                     SOUS-SITE                                       --
@@ -338,6 +347,7 @@ create or replace view r_patbat.geo_v_patbat_ssite as
 	e.nom_court,
 	e.nom_long,
 	e.superficie,
+	e.surface,
 	e.categorie,
 	e.observ,
 	e.type_etablissement,
@@ -345,28 +355,49 @@ create or replace view r_patbat.geo_v_patbat_ssite as
 	from r_patbat.an_entite e
  	join r_patbat.geo_ssite ss on e.id_entite = ss.id_entite;
 
+COMMENT ON VIEW r_patbat.geo_v_patbat_ssite IS 'Vue regroupant les attrbuts de la table entité ainsi que la géométrie de la table sous-site';
+
+
 CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_ssite()
 RETURNS TRIGGER AS $$
 DECLARE
     -- Déclaration de la variable pour stocker l'ID généré
     nouvel_id INT;
+	v_id_site INT;
 BEGIN
+
+	-- on stocke l'id_site dans lequel est compris le sous-site
+	SELECT s.id_entite INTO v_id_site
+    FROM r_patbat.geo_site s 
+    WHERE ST_CoveredBy(NEW.geom, s.geom);
+	
+	-- test pour savoir si le sous-site est bien compris entièrement dans un site 
+    IF v_id_site IS NULL THEN 
+		RAISE EXCEPTION 'Le sous-site n''est pas compris dans un site';
+	END IF;
+
+	-- test pour savoir si le sous-site ne se superpose pas avec un autre 
+	IF EXISTS(SELECT 1 FROM r_patbat.geo_ssite ss WHERE (ST_Intersects(NEW.geom,ss.geom) and not ST_Touches(NEW.geom,ss.geom))) THEN
+		RAISE EXCEPTION 'Le sous-site se superpose avec un autre sous-site';
+	END IF;  
+
+
     -- ==========================================
     -- CAS 1 : INSERTION (Création d'un site)
     -- ==========================================
     IF TG_OP = 'INSERT' THEN
         -- 1. Insertion dans la table entite avec récupération de l'ID
         INSERT INTO r_patbat.an_entite (
-            type_entite,ref_code, nom_court, nom_long, superficie, categorie, observ, type_etablissement
+            type_entite,ref_code, nom_court, nom_long, superficie, surface, categorie, observ, type_etablissement
         )
         VALUES (
-            'Sous-Site',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement
+            'Sous-Site',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.surface, NEW.categorie, NEW.observ, NEW.type_etablissement
         )
         RETURNING id_entite INTO nouvel_id; -- On met l'id_entite crée automatiquement dans nouvel_id
 
         -- 2. Insertion dans la table site avec l'ID stocké dans la variable
-        INSERT INTO r_patbat.geo_ssite (id_entite, geom)
-        VALUES (nouvel_id, NEW.geom);
+        INSERT INTO r_patbat.geo_ssite (id_entite, geom, id_site)
+        VALUES (nouvel_id, NEW.geom, v_id_site );
 
         RETURN NEW;
 
@@ -379,6 +410,7 @@ BEGIN
             nom_court = NEW.nom_court,
             nom_long = NEW.nom_long,
             superficie = NEW.superficie,
+			surface = NEW.surface,
             categorie = NEW.categorie,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement
@@ -400,10 +432,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+COMMENT ON FUNCTION r_patbat.ft_m_gestion_v_site IS 'Fonction qui transforme les opérations passées dans la vue de regroupement de données entre les tables entité et sous-site, par des opérations directement dans ces tables';
+
+
 CREATE or replace TRIGGER t_t1_gestion_v_ssite
 INSTEAD OF INSERT OR UPDATE OR DELETE ON r_patbat.geo_v_patbat_ssite
 FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_gestion_v_ssite();
 
+COMMENT ON TRIGGER t_t1_gestion_v_ssite ON r_patbat.geo_v_patbat_ssite IS 'Trigger se déclanchant a l''insert, update, ou delete de la vue de regroupement de données entre les tables entité et sous-site, appelant la fonction pour réaliser ces opérations directement dans les tables ';  
 
 
 -----------------------------------------------------------------------------------------
@@ -416,6 +452,7 @@ create or replace view r_patbat.geo_v_patbat_bati as
 	e.nom_court,
 	e.nom_long,
 	e.superficie,
+	e.surface,
 	e.categorie,
 	e.observ,
 	e.type_etablissement,
@@ -424,28 +461,48 @@ create or replace view r_patbat.geo_v_patbat_bati as
 	from r_patbat.an_entite e
  	join r_patbat.geo_bati b on e.id_entite = b.id_entite;
 
+COMMENT ON VIEW r_patbat.geo_v_patbat_bati IS 'Vue regroupant les attrbuts de la table entité ainsi que la géométrie de la table bati';
+
+
 CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_bati()
 RETURNS TRIGGER AS $$
 DECLARE
     -- Déclaration de la variable pour stocker l'ID généré
     nouvel_id INT;
+	v_id_site INT;
 BEGIN
+
+	-- on stocke l'id_site dans lequel est compris le bâtiment
+	SELECT s.id_entite INTO v_id_site
+    FROM r_patbat.geo_site s 
+    WHERE ST_CoveredBy(NEW.geom, s.geom);
+
+	-- test si le bâtiment est compris dans un site 
+	IF v_id_site IS NULL THEN
+		RAISE EXCEPTION 'Le bâtiment doit être compris dans un site';
+	END IF; 
+
+	-- test si le bâtiment se superpose avec un autre
+	IF EXISTS(SELECT 1 FROM r_patbat.geo_bati b WHERE (ST_Intersects(NEW.geom,b.geom) and not ST_Touches(NEW.geom,b.geom))) THEN
+		RAISE EXCEPTION 'Le bâtiment se superpose avec un autre';
+	END IF;
+
     -- ==========================================
     -- CAS 1 : INSERTION (Création d'un site)
     -- ==========================================
     IF TG_OP = 'INSERT' THEN
         -- 1. Insertion dans la table entite avec récupération de l'ID
         INSERT INTO r_patbat.an_entite (
-            type_entite,ref_code, nom_court, nom_long, superficie, categorie, observ, type_etablissement
+            type_entite,ref_code, nom_court, nom_long, superficie, surface, categorie, observ, type_etablissement
         )
         VALUES (
-            'Bâtiment',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement
+            'Bâtiment',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.surface, NEW.categorie, NEW.observ, NEW.type_etablissement
         )
         RETURNING id_entite INTO nouvel_id; -- On met l'id_entite crée automatiquement dans nouvel_id
 
         -- 2. Insertion dans la table site avec l'ID stocké dans la variable
-        INSERT INTO r_patbat.geo_bati (id_entite, geom, etat)
-        VALUES (nouvel_id, NEW.geom, NEW.etat);
+        INSERT INTO r_patbat.geo_bati (id_entite, geom, etat, id_site)
+        VALUES (nouvel_id, NEW.geom, NEW.etat, v_id_site);
 
         RETURN NEW;
 
@@ -458,6 +515,7 @@ BEGIN
             nom_court = NEW.nom_court,
             nom_long = NEW.nom_long,
             superficie = NEW.superficie,
+			surface = NEW.surface,
             categorie = NEW.categorie,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement
@@ -479,10 +537,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+COMMENT ON FUNCTION r_patbat.ft_m_gestion_v_site IS 'Fonction qui transforme les opérations passées dans la vue de regroupement de données entre les tables entité et bâtiment, par des opérations directement dans ces tables';
+
 CREATE or replace TRIGGER t_t1_gestion_v_bati
 INSTEAD OF INSERT OR UPDATE OR DELETE ON r_patbat.geo_v_patbat_bati
 FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_gestion_v_bati();
 
+COMMENT ON TRIGGER t_t1_gestion_v_bati ON r_patbat.geo_v_patbat_bati IS 'Trigger se déclanchant a l''insert, update, ou delete de la vue de regroupement de données entre les tables entité et bâtiment, appelant la fonction pour réaliser ces opérations directement dans les tables ';  
 
 
 
@@ -497,11 +558,15 @@ create or replace view r_patbat.geo_v_patbat_unite_fonc as
 	e.nom_long,
 	e.superficie,
 	e.categorie,
+	e.surface,
 	e.observ,
 	e.type_etablissement,
 	uf.geom
 	from r_patbat.an_entite e
  	join r_patbat.geo_unite_fonc uf on e.id_entite = uf.id_entite;
+
+COMMENT ON VIEW r_patbat.geo_v_patbat_unite_fonc IS 'Vue regroupant les attrbuts de la table entité ainsi que la géométrie de la table d''unité fonctionnelle';
+
 
 CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_unite_fonc()
 RETURNS TRIGGER AS $$
@@ -509,16 +574,22 @@ DECLARE
     -- Déclaration de la variable pour stocker l'ID généré
     nouvel_id INT;
 BEGIN
+
+	-- test si l'UF est bien dans un site
+	IF NOT EXISTS (SELECT 1 FROM r_patbat.geo_site s WHERE ST_Intersects(NEW.geom ,s.geom)) then 
+		RAISE EXCEPTION 'L''unité fonctionnelle n''est pas dans un site';
+	END IF; 
+
     -- ==========================================
     -- CAS 1 : INSERTION (Création d'un site)
     -- ==========================================
     IF TG_OP = 'INSERT' THEN
         -- 1. Insertion dans la table entite avec récupération de l'ID
         INSERT INTO r_patbat.an_entite (
-            type_entite,ref_code, nom_court, nom_long, superficie, categorie, observ, type_etablissement
+            type_entite,ref_code, nom_court, nom_long, superficie, surface, categorie, observ, type_etablissement
         )
         VALUES (
-            'Unité fonctionnelle',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement
+            'Unité fonctionnelle',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.surface, NEW.categorie, NEW.observ, NEW.type_etablissement
         )
         RETURNING id_entite INTO nouvel_id; -- On met l'id_entite crée automatiquement dans nouvel_id
 
@@ -537,6 +608,7 @@ BEGIN
             nom_court = NEW.nom_court,
             nom_long = NEW.nom_long,
             superficie = NEW.superficie,
+			surface = NEW.surface,
             categorie = NEW.categorie,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement
@@ -558,9 +630,135 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+COMMENT ON FUNCTION r_patbat.ft_m_gestion_v_site IS 'Fonction qui transforme les opérations passées dans la vue de regroupement de données entre les tables entité et unité fonctionnelle, par des opérations directement dans ces tables';
+
+
 CREATE or replace TRIGGER t_t1_gestion_v_unite_fonc
 INSTEAD OF INSERT OR UPDATE OR DELETE ON r_patbat.geo_v_patbat_unite_fonc
 FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_gestion_v_unite_fonc();
 
+COMMENT ON TRIGGER t_t1_gestion_v_unite_fonc ON r_patbat.geo_v_patbat_unite_fonc IS 'Trigger se déclanchant a l''insert, update, ou delete de la vue de regroupement de données entre les tables entité et unité fonctionnelle, appelant la fonction pour réaliser ces opérations directement dans les tables ';  
+
+-----------------------------------------------------------------------------------------
+--																					   --
+--							FONCTIONS DE REMPLISSAGE D'ATTRIBUTS					   --
+-- 																					   --
+-----------------------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION ft_r_insee_commune() 
+RETURNS TRIGGER AS $$
+DECLARE
+    v_commune VARCHAR;
+    v_insee VARCHAR;
+BEGIN
+    -- 1. On récupère les valeurs grâce à l'intersection spatiale
+    SELECT c.tex2, '60' || c.idu
+    INTO v_commune, v_insee
+    FROM r_cadastre.geo_commune c
+    WHERE ST_Intersects(NEW.geom, c.geom)
+    LIMIT 1;
+
+    -- 2. On met à jour la table entité avec l'ID de l'entité
+   
+    UPDATE r_patbat.an_entite
+       SET commune = v_commune, insee = v_insee
+       WHERE id_entite = NEW.id_entite;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION ft_r_insee_commune IS 'Fonction pour trouver le code insee et le nom de la commune de l''entité en fonction de sa géométrie présente dans les tables geo_';
+
+CREATE TRIGGER t_t3_insee_commune
+AFTER INSERT OR UPDATE OF geom ON r_patbat.geo_site
+FOR EACH ROW EXECUTE FUNCTION ft_r_insee_commune();
+
+COMMENT ON TRIGGER t_t3_insee_commune ON r_patbat.geo_site IS 'Trigger à l''insert ou update de la table contenant les géométries des sites, appelant la fonction pour récupérer les codes insee et communes';
+
+CREATE TRIGGER t_t3_insee_commune
+AFTER INSERT OR UPDATE OF geom ON r_patbat.geo_ssite
+FOR EACH ROW EXECUTE FUNCTION ft_r_insee_commune();
+
+COMMENT ON TRIGGER t_t3_insee_commune ON r_patbat.geo_ssite IS 'Trigger à l''insert ou update de la table contenant les géométries des sous-sites, appelant la fonction pour récupérer les codes insee et communes';
+
+CREATE TRIGGER t_t3_insee_commune
+AFTER INSERT OR UPDATE OF geom ON r_patbat.geo_bati
+FOR EACH ROW EXECUTE FUNCTION ft_r_insee_commune();
+
+COMMENT ON TRIGGER t_t3_insee_commune ON r_patbat.geo_bati IS 'Trigger à l''insert ou update de la table contenant les géométries des bâtiments, appelant la fonction pour récupérer les codes insee et communes';
+
+CREATE TRIGGER t_t3_insee_commune
+AFTER INSERT OR UPDATE OF geom ON r_patbat.geo_unite_fonc
+FOR EACH ROW EXECUTE FUNCTION ft_r_insee_commune();
+
+COMMENT ON TRIGGER t_t3_insee_commune ON r_patbat.geo_unite_fonc IS 'Trigger à l''insert ou update de la table contenant les géométries des unités fonctionnelles, appelant la focntion pour récupérer les codes insee et communes';
+
+CREATE FUNCTION r_patbat.ft_m_dbupdate_dbinsert()
+RETURNS TRIGGER AS $$ 
+BEGIN
+	IF TG_OP = 'INSERT' THEN 
+		NEW.dbinsert = CURRENT_TIMESTAMP;
+	ELSIF TG_OP = 'UPDATE' then 
+		NEW.dbupdate = CURRENT_TIMESTAMP;
+	END IF;
+	RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION  r_patbat.ft_m_dbupdate_dbinsert IS 'Fonction de mise à jour des champs dbinsert et dbupdate selon l''opération réalisée';
+
+CREATE TRIGGER t_t2_dbupdate_dbinsert
+BEFORE INSERT OR UPDATE ON r_patbat.an_entite
+FOR EACH ROW 
+EXECUTE FUNCTION r_patbat.ft_m_dbupdate_dbinsert();
+
+COMMENT ON TRIGGER t_t2_dbupdate_dbinsert ON r_patbat.an_entite IS 'Trigger modifiant les champs dbinsert et dbupdate de la table an_entite selon l''opération réalisée';
+
+CREATE OR REPLACE FUNCTION ft_r_parcelles()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Mise à jour de la table entité avec un tableau contenant toutes les parcelles intersectées
+    UPDATE r_patbat.an_entite  
+    SET parcelles = ARRAY(
+        SELECT p.idu_60 
+        FROM r_cadastre.geo_parcelle p 
+        WHERE ST_Intersects(NEW.geom, p.geom)
+    )
+    WHERE id_entite = NEW.id_entite;
+    
+    RETURN NEW; 
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION ft_r_parcelles IS 'Fonction récupérant un tableau contenant les numéros de parcelles cadastrales dans lesquelles se trouvent l''entité';
+
+CREATE TRIGGER t_t3_parcelles 
+AFTER INSERT OR UPDATE OF geom ON r_patbat.geo_site
+FOR EACH ROW 
+EXECUTE FUNCTION ft_r_parcelles();
+
+COMMENT ON TRIGGER t_t3_parcelles ON r_patbat.geo_site IS 'Trigger récupérant les parcelles dans lesquelles se trouvent le site après un insert ou un update';
+
+CREATE TRIGGER t_t3_parcelles 
+AFTER INSERT OR UPDATE OF geom ON r_patbat.geo_ssite
+FOR EACH ROW 
+EXECUTE FUNCTION ft_r_parcelles();
+
+COMMENT ON TRIGGER t_t3_parcelles ON r_patbat.geo_ssite IS 'Trigger récupérant les parcelles dans lesquelles se trouvent le sous-site après un insert ou un update';
+
+CREATE TRIGGER t_t3_parcelles 
+AFTER INSERT OR UPDATE OF geom ON r_patbat.geo_bati
+FOR EACH ROW 
+EXECUTE FUNCTION ft_r_parcelles();
+
+COMMENT ON TRIGGER t_t3_parcelles ON r_patbat.geo_bati IS 'Trigger récupérant les parcelles dans lesquelles se trouvent le bâtiment après un insert ou un update';
+
+CREATE TRIGGER t_t3_parcelles 
+AFTER INSERT OR UPDATE OF geom ON r_patbat.geo_unite_fonc
+FOR EACH ROW 
+EXECUTE FUNCTION ft_r_parcelles();
+
+COMMENT ON TRIGGER t_t3_parcelles ON r_patbat.geo_unite_fonc IS 'Trigger récupérant les parcelles dans lesquelles se trouvent l''unité fonctionnelle après un insert ou un update';
 
 
