@@ -81,14 +81,37 @@ comment on column r_patbat.geo_bati.id_entite is 'Identifiant de l''entité';
 
 
 create table r_patbat.geo_unite_fonc(
-	id_entite int primary key,
+	id_entite int primary key,	
+	id_bati int,
+	id_site int,
+
 	geom geometry(Point, 2154),
 	
-	constraint fk_geo_unite_fonc_entite foreign key (id_entite) references r_patbat.an_entite(id_entite)
+	constraint fk_geo_unite_fonc_entite foreign key (id_entite) references r_patbat.an_entite(id_entite),
+	CONSTRAINT fk_geo_unite_fonc_id_bati FOREIGN KEY (id_bati) REFERENCES r_patbat.an_entite(id_entite),
+	CONSTRAINT fk_geo_unite_fonc_id_site FOREIGN KEY (id_site) REFERENCES r_patbat.an_entite(id_entite)
 );
 comment on table r_patbat.geo_unite_fonc is 'Classe géographique regroupant les informations de toutes les entités étant des unités fonctionnelles';
 comment on column r_patbat.geo_unite_fonc.id_entite is 'Identifiant de l''entité';
+COMMENT ON COLUMN r_patbat.geo_unite_fonc.id_site IS 'Identifiant du site dans lequel se trouve l''unité fonctionelle';
 
+
+create table r_patbat.geo_local(
+	id_entite int primary key,
+	id_site int,
+	id_bati int,
+	etage int NOT null, 
+	geom geometry(MultiPolygon, 2154),
+	
+	constraint fk_geo_local_entite foreign key (id_entite) references r_patbat.an_entite(id_entite),
+	CONSTRAINT fk_geo_local_id_site FOREIGN KEY (id_site) REFERENCES r_patbat.an_entite(id_entite),
+	CONSTRAINT fk_geo_local_id_bati FOREIGN KEY (id_bati) REFERENCES r_patbat.an_entite(id_entite)
+);
+comment on table r_patbat.geo_local is 'Classe géographique regroupant les informations de tout les locaux';
+comment on column r_patbat.geo_local.id_entite is 'Identifiant de l''entité';
+COMMENT ON COLUMN r_patbat.geo_local.id_site IS 'Identifiant du site dans lequel se trouve le local';
+COMMENT ON COLUMN r_patbat.geo_local.id_bati IS 'Identifiant du bâtiment dans lequel se trouve le local';
+COMMENT ON COLUMN r_patbat.geo_local.etage IS 'Numéro de l''étage dans lequel se trouve le local';
 
 -- Table des fonctions de contacts (Liste de valeurs)
 CREATE TABLE r_patbat.lt_fonction (
@@ -122,7 +145,7 @@ comment on column r_patbat.an_contact.organisme is 'Organisme du contact';
 create table r_patbat.lk_contact (
     id_entite INT,
     id_contact INT,
-    code_fonction VARCHAR,
+    code_fonction VARCHAR, --table de valeur 
     
     constraint pk_lk_contact primary key (id_entite, id_contact, code_fonction),
     constraint fk_lk_contact_id_bat foreign key (id_entite) references r_patbat.an_entite(id_entite), 
@@ -152,7 +175,7 @@ comment on column r_patbat.an_orga.id_orga is 'Identifiant unique de l''organisa
 create table r_patbat.lk_orga_role(
 	id_entite int,
 	id_orga int,
-	code_role varchar,
+	code_role varchar, -- table de valeur 
 	
 	constraint pk_lk_orga_role primary key (id_entite,id_orga,code_role),
 	constraint fk_lk_orga_role_entite foreign key(id_entite) references r_patbat.an_entite(id_entite),
@@ -193,9 +216,9 @@ comment on column r_patbat.lt_type_doc.valeur is 'Valeur du type de document';
 create table r_patbat.an_doc(
 	id_doc serial primary key,
 	nom_doc varchar not null, 
-	pointeur varchar not null,
+	pointeur varchar not null, -- lien URL / chemin d'accès 
 	date_doc timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	type_doc varchar,
+	type_doc varchar, --liste de valeur
 	
 	constraint fk_an_doc_type foreign key(type_doc) references r_patbat.lt_type_doc(code)
 );
@@ -239,7 +262,7 @@ comment on table r_patbat.lk_adresse is 'Table de relation entre les entites et 
 comment on column r_patbat.lk_adresse.id_entite is 'Identifiant de l''entite';
 comment on column r_patbat.lk_adresse.id_adresse is 'Identifiant de l''adresse';
 
-CREATE TABLE r_patbat.lt_type_eta(
+CREATE TABLE r_patbat.lt_type_eta( -- Table utilisée dans QGIS pour faire une liste de valeurs pour les types d'établissements des entités
 	code varchar PRIMARY KEY ,
 	valeur varchar 
 );
@@ -277,28 +300,37 @@ COMMENT ON VIEW r_patbat.geo_v_patbat_site IS 'Vue regroupant les attributs de l
 CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_site()
 RETURNS TRIGGER AS $$
 DECLARE
-    nouvel_id INT;
+    nouvel_id INT; --variable dans laquelle on va stocker l'id_entite qu'on crée
 BEGIN
-	IF EXISTS (SELECT 1 FROM r_patbat.geo_site s WHERE (ST_Intersects(NEW.geom,s.geom) and not ST_Touches(NEW.geom,s.geom))) THEN 
-		RAISE EXCEPTION 'Le site se superpose à un autre';
+	-- test de superposition avec un autre site
+	IF EXISTS (SELECT 1 FROM r_patbat.geo_site s 
+				JOIN r_patbat.an_entite e ON s.id_entite = e.id_entite
+				WHERE s.id_entite is distinct from NEW.id_entite  		
+				AND e.dbstatut IS DISTINCT FROM '20' 
+			    AND NEW.dbstatut IS DISTINCT FROM '20' 
+				AND (ST_Intersects(NEW.geom,s.geom) and not ST_Touches(NEW.geom,s.geom))) THEN 
+		RAISE EXCEPTION 'Le site se superpose à un autre site actif';
 	END IF;
 
+	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
-        INSERT INTO r_patbat.an_entite (
+        INSERT INTO r_patbat.an_entite ( -- on insère les données de la vue dans la table an_entite 
             type_entite,ref_code, nom_court, nom_long, superficie, surface, categorie, observ, type_etablissement, dbstatut
         )
         VALUES (
             'Site',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie,NEW.surface, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
         )
-        RETURNING id_entite INTO nouvel_id;
+        RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
+		-- On insère les données dans la table geo_site, en utilisant le même id_entite
         INSERT INTO r_patbat.geo_site (id_entite, geom)
         VALUES (nouvel_id, NEW.geom);
 
         RETURN NEW;
 
+	-- si l'opération réalisée sur la vue est un UPDATE
     ELSIF TG_OP = 'UPDATE' THEN
-        UPDATE r_patbat.an_entite
+        UPDATE r_patbat.an_entite -- on update la table an_entite
         SET ref_code = NEW.ref_code,
             nom_court = NEW.nom_court,
             nom_long = NEW.nom_long,
@@ -310,27 +342,33 @@ BEGIN
 			dbstatut = NEW.dbstatut
         WHERE id_entite = OLD.id_entite;
 
-        UPDATE r_patbat.geo_site
+        UPDATE r_patbat.geo_site -- on update la table geo_site
         SET geom = NEW.geom
         WHERE id_entite = OLD.id_entite;
 
         RETURN NEW;
 
-    ELSIF TG_OP = 'DELETE' THEN		
+    ELSIF TG_OP = 'DELETE' THEN	-- si l'opération réalisée sur la vue est un DELETE	
 		
-		IF OLD.dbstatut = '20' THEN
-			DELETE FROM r_patbat.geo_v_patbat_ssite WHERE ST_CoveredBy(geom,OLD.geom); -- delete des sous-sites compris dans le site
-			DELETE FROM r_patbat.geo_v_patbat_bati WHERE ST_CoveredBy(geom,OLD.geom); -- delete des bâtiments compris dans le site
-			DELETE FROM r_patbat.geo_v_patbat_unite_fonc WHERE ST_CoveredBy(geom,OLD.geom); -- delete des UF compris dans le site
+		IF OLD.dbstatut = '20' THEN -- si le site est désactivé (dbstatut = '20') alors		
+			DELETE FROM r_patbat.geo_v_patbat_local WHERE ST_CoveredBy(geom,OLD.geom);
+			DELETE FROM r_patbat.geo_v_patbat_ssite WHERE ST_CoveredBy(geom,OLD.geom); -- delete des sous-sites compris dans le site (si le sous-site est activé alors il devient désactivé)
+			DELETE FROM r_patbat.geo_v_patbat_bati WHERE ST_CoveredBy(geom,OLD.geom); -- delete des bâtiments compris dans le site (si le bâtiment est activé alors il devient désactivé)
+			DELETE FROM r_patbat.geo_v_patbat_unite_fonc WHERE ST_CoveredBy(geom,OLD.geom); -- delete des UF compris dans le site (si l'unité fonctionnelle est activée alors elle devient désactivée)
+	
 
-			DELETE FROM r_patbat.geo_site WHERE id_entite = OLD.id_entite; -- delete de la table geo_site
-        	DELETE FROM r_patbat.an_entite WHERE id_entite = OLD.id_entite; -- delete de la table entité
-		ELSE
-			DELETE FROM r_patbat.geo_v_patbat_ssite WHERE ST_CoveredBy(geom,OLD.geom) and dbstatut is distinct from '20' ; -- update des statuts des sous-sites activés compris dans le site
-			DELETE FROM r_patbat.geo_v_patbat_bati WHERE ST_CoveredBy(geom,OLD.geom) and dbstatut is distinct from '20' ; -- update des statuts des sous-sites activés compris dans le site
-			DELETE FROM r_patbat.geo_v_patbat_unite_fonc WHERE ST_CoveredBy(geom,OLD.geom) and dbstatut is distinct from '20' ; -- update des statuts des sous-sites activés compris dans le site
+			DELETE FROM r_patbat.geo_site WHERE id_entite = OLD.id_entite; -- delete le site de la table geo_site
+        	DELETE FROM r_patbat.an_entite WHERE id_entite = OLD.id_entite; -- delete le site de la table entité
 
-			UPDATE r_patbat.an_entite
+		ELSE -- si le site est activé (dbstatut = '10')
+
+			DELETE FROM r_patbat.geo_v_patbat_local WHERE ST_CoveredBy(geom,OLD.geom) and dbstatut is distinct from '20' ;
+			DELETE FROM r_patbat.geo_v_patbat_ssite WHERE ST_CoveredBy(geom,OLD.geom) and dbstatut is distinct from '20' ; -- désactivation des sous-sites activés compris dans le site
+			DELETE FROM r_patbat.geo_v_patbat_bati WHERE ST_CoveredBy(geom,OLD.geom) and dbstatut is distinct from '20' ; -- désactivation des bâtiments activés compris dans le site
+			DELETE FROM r_patbat.geo_v_patbat_unite_fonc WHERE ST_CoveredBy(geom,OLD.geom) and dbstatut is distinct from '20' ; -- désactivation des unités fonctionelles activées compris dans le site
+			
+
+			UPDATE r_patbat.an_entite -- on désactive le bâtiment (dbstatut = '20')
 			SET dbstatut = '20' 
 			WHERE id_entite = OLD.id_entite;
 		END IF;
@@ -374,16 +412,17 @@ COMMENT ON VIEW r_patbat.geo_v_patbat_ssite IS 'Vue regroupant les attrbuts de l
 CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_ssite()
 RETURNS TRIGGER AS $$
 DECLARE
-    nouvel_id INT;
-	v_id_site INT; -- l'id su site dans lequel est compris le sous-site
+    nouvel_id INT; --variable dans laquelle on va stocker l'id_entite qu'on crée
+	v_id_site INT; -- l'id du site dans lequel est compris le sous-site
 	v_statut_site VARCHAR; --le statut du site dans lequel est compris le sous-site
 BEGIN
-	SELECT s.id_entite, e.dbstatut INTO v_id_site, v_statut_site
+
+	SELECT s.id_entite, e.dbstatut INTO v_id_site, v_statut_site -- on stocke l'id et le staut du site dans lequel est compris le sous-site
 	FROM r_patbat.geo_site s 
 	JOIN r_patbat.an_entite e ON s.id_entite = e.id_entite
 	WHERE ST_CoveredBy(NEW.geom, s.geom);
 
-	
+	-- on teste si le sous-site est bien compris dans un site 
     IF TG_OP IN ('UPDATE','INSERT') AND v_id_site IS NULL THEN 
 		RAISE EXCEPTION 'Le sous-site n''est pas compris dans un site';
 	END IF;
@@ -393,26 +432,35 @@ BEGIN
 		RAISE EXCEPTION 'Impossible d''insérer ou de rendre actif un sous-site dans un site désactivé (dbstatut = 20)';
 	END IF;
 
-	IF EXISTS(SELECT 1 FROM r_patbat.geo_ssite ss WHERE (ST_Intersects(NEW.geom,ss.geom) and not ST_Touches(NEW.geom,ss.geom))) THEN
+	-- on vérifie si le sous-site actif ne se superpose pas avec un autre sous-site actif
+	IF EXISTS(SELECT 1 FROM r_patbat.geo_ssite ss 
+			  JOIN r_patbat.an_entite e ON ss.id_entite = e.id_entite
+			  WHERE ss.id_entite is distinct from NEW.id_entite 
+			  AND e.dbstatut IS DISTINCT FROM '20' 
+			  AND NEW.dbstatut IS DISTINCT FROM '20'  
+			  and (ST_Intersects(NEW.geom,ss.geom) and not ST_Touches(NEW.geom,ss.geom))) THEN
 		RAISE EXCEPTION 'Le sous-site se superpose avec un autre sous-site';
 	END IF;  
 
+	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
-        INSERT INTO r_patbat.an_entite (
+        INSERT INTO r_patbat.an_entite ( -- on insère les données de la vue dans la table an_entite
             type_entite,ref_code, nom_court, nom_long, superficie, surface, categorie, observ, type_etablissement, dbstatut
         )
         VALUES (
             'Sous-Site',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.surface, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
         )
-        RETURNING id_entite INTO nouvel_id;
+        RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
+		-- On insère les données dans la table geo_ssite, en utilisant le même id_entite et le v_id_site récupéré
         INSERT INTO r_patbat.geo_ssite (id_entite, geom, id_site)
         VALUES (nouvel_id, NEW.geom, v_id_site );
 
         RETURN NEW;
 
+	-- si l'opération réalisée sur la vue est un UPDATE
     ELSIF TG_OP = 'UPDATE' THEN
-        UPDATE r_patbat.an_entite
+        UPDATE r_patbat.an_entite -- on update la table an_entite
         SET ref_code = NEW.ref_code,
             nom_court = NEW.nom_court,
             nom_long = NEW.nom_long,
@@ -424,18 +472,21 @@ BEGIN
 			dbstatut = NEW.dbstatut
         WHERE id_entite = OLD.id_entite;
 
-        UPDATE r_patbat.geo_ssite
+        UPDATE r_patbat.geo_ssite -- on update la table geo_ssite
         SET geom = NEW.geom
         WHERE id_entite = OLD.id_entite;
 
         RETURN NEW;
 
+	-- si l'opération réalisée sur la vue est un DELETE
     ELSIF TG_OP = 'DELETE' THEN
-		IF OLD.dbstatut = '20' THEN
-			DELETE FROM r_patbat.geo_ssite WHERE id_entite = OLD.id_entite;
-        	DELETE FROM r_patbat.an_entite WHERE id_entite = OLD.id_entite;
-		ELSE
-			UPDATE r_patbat.an_entite
+		
+		IF OLD.dbstatut = '20' THEN -- si le sous-site est désactivé (dbstatut = '20') alors
+			DELETE FROM r_patbat.geo_ssite WHERE id_entite = OLD.id_entite; -- delete le sous-site de la table geo_ssite
+        	DELETE FROM r_patbat.an_entite WHERE id_entite = OLD.id_entite; -- delete le sous-site de la table entité
+		
+		ELSE -- si le sous-site est activé (dbstatut = '10' ou '1')
+			UPDATE r_patbat.an_entite -- on désactive le sous-site (dbstatut = '20')
 			SET dbstatut = '20' 
 			WHERE id_entite = OLD.id_entite;
 		END IF;
@@ -483,43 +534,54 @@ COMMENT ON VIEW r_patbat.geo_v_patbat_bati IS 'Vue regroupant les attrbuts de la
 CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_bati()
 RETURNS TRIGGER AS $$
 DECLARE
-    nouvel_id INT;
-	v_id_site INT;
-	v_statut_site VARCHAR;
+    nouvel_id INT; --variable dans laquelle on va stocker l'id_entite qu'on crée
+	v_id_site INT; -- l'id du site dans lequel est compris le bâtiment
+	v_statut_site VARCHAR; --le statut du site dans lequel est compris le bâtiment
 BEGIN
-	SELECT s.id_entite, e.dbstatut INTO v_id_site, v_statut_site
+	SELECT s.id_entite, e.dbstatut INTO v_id_site, v_statut_site -- on stocke l'id et le statut du site dans lequel est compris le bâtiment
 		FROM r_patbat.geo_site s 
 		JOIN r_patbat.an_entite e ON s.id_entite = e.id_entite
 		WHERE ST_CoveredBy(NEW.geom, s.geom);
 
+	-- on teste si le bâtiment est bien compris dans un site 
 	IF TG_OP IN ('UPDATE','INSERT') AND v_id_site IS NULL THEN
 		RAISE EXCEPTION 'Le bâtiment doit être compris dans un site';
 	END IF; 
 
+	-- Vérification de la cohérence des statuts, impossible de mettre un bâtiment actif dans un site désactivé
 	IF v_statut_site = '20' AND NEW.dbstatut != '20' THEN
 		RAISE EXCEPTION 'Impossible d''insérer ou de rendre actif un bâtiment dans un site désactivé (dbstatut = 20)';
 	END IF;
 
-	IF EXISTS(SELECT 1 FROM r_patbat.geo_bati b WHERE (ST_Intersects(NEW.geom,b.geom) and not ST_Touches(NEW.geom,b.geom))) THEN
+	-- on vérifie si le bâtiment actif ne se superpose pas avec un autre bâtiment actif
+	IF EXISTS(SELECT 1 FROM r_patbat.geo_bati b 
+			  JOIN r_patbat.an_entite e ON b.id_entite = e.id_entite
+			  WHERE b.id_entite is distinct from NEW.id_entite 
+			  AND e.dbstatut IS DISTINCT FROM '20' 
+			  AND NEW.dbstatut IS DISTINCT FROM '20' 
+              and (ST_Intersects(NEW.geom,b.geom) and not ST_Touches(NEW.geom,b.geom))) THEN
 		RAISE EXCEPTION 'Le bâtiment se superpose avec un autre';
 	END IF;
 
+	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
-        INSERT INTO r_patbat.an_entite (
+        INSERT INTO r_patbat.an_entite ( -- on insère les données de la vue dans la table an_entite
             type_entite,ref_code, nom_court, nom_long, superficie, surface, categorie, observ, type_etablissement, dbstatut
         )
         VALUES (
             'Bâtiment',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.surface, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
         )
-        RETURNING id_entite INTO nouvel_id;
+        RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
+		-- On insère les données dans la table geo_bati, en utilisant le même id_entite et le v_id_site récupéré
         INSERT INTO r_patbat.geo_bati (id_entite, geom, etat, id_site)
         VALUES (nouvel_id, NEW.geom, NEW.etat, v_id_site);
 
         RETURN NEW;
 
+	-- si l'opération réalisée sur la vue est un UPDATE
     ELSIF TG_OP = 'UPDATE' THEN
-        UPDATE r_patbat.an_entite
+        UPDATE r_patbat.an_entite -- on update la table an_entite
         SET ref_code = NEW.ref_code,
             nom_court = NEW.nom_court,
             nom_long = NEW.nom_long,
@@ -531,18 +593,21 @@ BEGIN
 			dbstatut = NEW.dbstatut
         WHERE id_entite = OLD.id_entite;
 
-        UPDATE r_patbat.geo_bati
+        UPDATE r_patbat.geo_bati -- on update la table geo_bati
         SET geom = NEW.geom, etat = NEW.etat
         WHERE id_entite = OLD.id_entite;
 
         RETURN NEW;
 
+	-- si l'opération réalisée sur la vue est un DELETE
     ELSIF TG_OP = 'DELETE' THEN
-		IF OLD.dbstatut = '20' THEN
-			DELETE FROM r_patbat.geo_bati WHERE id_entite = OLD.id_entite;
-        	DELETE FROM r_patbat.an_entite WHERE id_entite = OLD.id_entite;
-		ELSE
-			UPDATE r_patbat.an_entite
+		
+		IF OLD.dbstatut = '20' THEN -- si le bâtiment est désactivé (dbstatut = '20') alors
+			DELETE FROM r_patbat.geo_bati WHERE id_entite = OLD.id_entite; -- delete le bâtiment de la table geo_bati
+        	DELETE FROM r_patbat.an_entite WHERE id_entite = OLD.id_entite; -- delete le bâtiment de la table entité
+		
+		ELSE -- si le bâtiment est activé (dbstatut = '10')
+			UPDATE r_patbat.an_entite -- on désactive le bâtiment (dbstatut = '20')
 			SET dbstatut = '20' 
 			WHERE id_entite = OLD.id_entite;
 		END IF;
@@ -587,40 +652,54 @@ COMMENT ON VIEW r_patbat.geo_v_patbat_unite_fonc IS 'Vue regroupant les attrbuts
 CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_unite_fonc()
 RETURNS TRIGGER AS $$
 DECLARE
-    nouvel_id INT;
-	v_id_site INT;
-	v_statut_site VARCHAR;
+    nouvel_id INT; --variable dans laquelle on va stocker l'id_entite qu'on crée
+	v_id_site INT; -- l'id du site dans lequel est comprise l'UF
+	v_statut_site VARCHAR; --le statut du site dans lequel est comprise l'UF
+	v_id_bati INT; -- l'id du bâtiment dans lequel se trouve l'UF
 BEGIN
-	SELECT s.id_entite, e.dbstatut INTO v_id_site, v_statut_site
+	SELECT s.id_entite, e.dbstatut INTO v_id_site, v_statut_site -- on stocke l'id et le statut du site dans lequel est comprise l'UF
 	FROM r_patbat.geo_site s 
 	JOIN r_patbat.an_entite e ON s.id_entite = e.id_entite
 	WHERE ST_Intersects(NEW.geom ,s.geom)
 	LIMIT 1;
 
+	-- on teste si l'unité fonctionnelle est bien comprise dans un site 
 	IF TG_OP IN ('UPDATE','INSERT') AND v_id_site IS NULL THEN 
 		RAISE EXCEPTION 'L''unité fonctionnelle n''est pas dans un site';
 	END IF; 
 
+	SELECT b.id_entite INTO v_id_bati
+	FROM r_patbat.geo_bati b
+	WHERE ST_Intersects(NEW.geom,b.geom);
+
+	IF TG_OP IN ('UPDATE','INSERT') and v_id_bati is null THEN
+		RAISE EXCEPTION 'L''Unité fonctionnelle n''est pas comprise dans un bâtiment';
+	END IF;
+
+	-- Vérification de la cohérence des statuts, impossible de mettre une UF active dans un site désactivé
 	IF v_statut_site = '20' AND NEW.dbstatut != '20' THEN
 		RAISE EXCEPTION 'Impossible d''insérer ou de rendre actif une unité fonctionnelle dans un site désactivé (dbstatut = 20)';
 	END IF;
 
+	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
-        INSERT INTO r_patbat.an_entite (
+        INSERT INTO r_patbat.an_entite ( -- on insère les données de la vue dans la table an_entite
             type_entite,ref_code, nom_court, nom_long, superficie, surface, categorie, observ, type_etablissement, dbstatut
         )
         VALUES (
             'Unité fonctionnelle',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.surface, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
         )
-        RETURNING id_entite INTO nouvel_id;
+        RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
-        INSERT INTO r_patbat.geo_unite_fonc (id_entite, geom)
-        VALUES (nouvel_id, NEW.geom);
+		-- On insère les données dans la table geo_unite_fonc, en utilisant le même id_entite
+        INSERT INTO r_patbat.geo_unite_fonc (id_entite, geom, id_site, id_bati)
+        VALUES (nouvel_id, NEW.geom, v_id_site, v_id_bati);
 
         RETURN NEW;
 
+	-- si l'opération réalisée sur la vue est un UPDATE
     ELSIF TG_OP = 'UPDATE' THEN
-        UPDATE r_patbat.an_entite
+        UPDATE r_patbat.an_entite -- on update la table an_entite
         SET ref_code = NEW.ref_code,
             nom_court = NEW.nom_court,
             nom_long = NEW.nom_long,
@@ -632,18 +711,21 @@ BEGIN
 			dbstatut = NEW.dbstatut
         WHERE id_entite = OLD.id_entite;
 
-        UPDATE r_patbat.geo_unite_fonc
+        UPDATE r_patbat.geo_unite_fonc -- on update la table geo_unite_fonc
         SET geom = NEW.geom
         WHERE id_entite = OLD.id_entite;
 
         RETURN NEW;
 
+	-- si l'opération réalisée sur la vue est un DELETE
     ELSIF TG_OP = 'DELETE' THEN
-		IF OLD.dbstatut = '20' THEN
-			DELETE FROM r_patbat.geo_unite_fonc WHERE id_entite = OLD.id_entite;
-        	DELETE FROM r_patbat.an_entite WHERE id_entite = OLD.id_entite;
-		ELSE
-			UPDATE r_patbat.an_entite
+		
+		IF OLD.dbstatut = '20' THEN -- si l'unité fonctionnelle est désactivée (dbstatut = '20') alors
+			DELETE FROM r_patbat.geo_unite_fonc WHERE id_entite = OLD.id_entite; -- delete l'unité fonctionnelle de la table geo_unite_fonc
+        	DELETE FROM r_patbat.an_entite WHERE id_entite = OLD.id_entite; -- delete l'unité fonctionnelle de la table entité
+		
+		ELSE -- si l'unité fonctionnelle est activée (dbstatut = '10' ou '1')
+			UPDATE r_patbat.an_entite -- on désactive l'unité fonctionnelle (dbstatut = '20')
 			SET dbstatut = '20' 
 			WHERE id_entite = OLD.id_entite;
 		END IF;
@@ -663,6 +745,140 @@ INSTEAD OF INSERT OR UPDATE OR DELETE ON r_patbat.geo_v_patbat_unite_fonc
 FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_gestion_v_unite_fonc();
 
 COMMENT ON TRIGGER t_t1_gestion_v_unite_fonc ON r_patbat.geo_v_patbat_unite_fonc IS 'Trigger se déclanchant a l''insert, update, ou delete de la vue de regroupement de données entre les tables entité et unité fonctionnelle, appelant la fonction pour réaliser ces opérations directement dans les tables ';
+
+
+-----------------------------------------------------------------------------------------
+--                                       LOCAL                                         --
+-----------------------------------------------------------------------------------------
+
+create or replace view r_patbat.geo_v_patbat_local as 
+	select e.ref_code,
+	e.id_entite,
+	e.nom_court,
+	e.nom_long,
+	e.superficie,
+	e.categorie,
+	e.surface,
+	e.observ,
+	e.type_etablissement,
+	e.dbstatut,
+	l.geom,
+	l.etage
+	from r_patbat.an_entite e
+ 	join r_patbat.geo_local l on e.id_entite = l.id_entite;
+
+COMMENT ON VIEW r_patbat.geo_v_patbat_local IS 'Vue regroupant les attrbuts de la table entité ainsi que de la table geo_local';
+
+
+CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_local()
+RETURNS TRIGGER AS $$
+DECLARE
+    nouvel_id INT; --variable dans laquelle on va stocker l'id_entite qu'on crée
+	v_id_site INT; -- l'id du site dans lequel est compris le local
+	v_statut_site VARCHAR; --le statut du site dans lequel est comprise le local
+	v_id_bati INT; -- l'id du bâtiment dans lequel se trouve le local
+BEGIN
+	SELECT s.id_entite, e.dbstatut INTO v_id_site, v_statut_site -- on stocke l'id et le statut du site dans lequel est compris le local
+	FROM r_patbat.geo_site s 
+	JOIN r_patbat.an_entite e ON s.id_entite = e.id_entite
+	WHERE ST_CoveredBy(NEW.geom ,s.geom)
+	LIMIT 1;
+
+	-- on teste si le local est bien compris dans un site 
+	IF TG_OP IN ('UPDATE','INSERT') AND v_id_site IS NULL THEN 
+		RAISE EXCEPTION 'Le local n''est pas dans un site';
+	END IF; 
+
+	SELECT b.id_entite INTO v_id_bati
+	FROM r_patbat.geo_bati b
+	WHERE ST_Intersects(NEW.geom,b.geom) and not ST_Touches(NEW.geom,b.geom);
+
+	IF TG_OP IN ('UPDATE','INSERT') and v_id_bati is null THEN
+		RAISE EXCEPTION 'Le local n''est pas compris dans un bâtiment';
+	END IF;
+
+	-- Vérification de la cohérence des statuts, impossible de mettre un local dans un site désactivé
+	IF v_statut_site = '20' AND NEW.dbstatut != '20' THEN
+		RAISE EXCEPTION 'Impossible d''insérer ou de rendre actif un local dans un site désactivé (dbstatut = 20)';
+	END IF;
+
+	-- on vérifie si le local actif ne se superpose pas avec un autre local actif du même étage
+	IF EXISTS(SELECT 1 FROM r_patbat.geo_local l 
+			  JOIN r_patbat.an_entite e ON l.id_entite = e.id_entite
+			  WHERE l.id_entite is distinct from NEW.id_entite 
+			  AND e.dbstatut IS DISTINCT FROM '20' 
+			  AND NEW.dbstatut IS DISTINCT FROM '20' 
+			  and NEW.etage = l.etage 
+			  and (ST_Intersects(NEW.geom,l.geom) and not ST_Touches(NEW.geom,l.geom))) THEN
+		RAISE EXCEPTION 'Le local se superpose avec un autre';
+	END IF;
+
+	-- si l'opération réalisée sur la vue est un INSERT
+    IF TG_OP = 'INSERT' THEN
+        INSERT INTO r_patbat.an_entite ( -- on insère les données de la vue dans la table an_entite
+            type_entite,ref_code, nom_court, nom_long, superficie, surface, categorie, observ, type_etablissement, dbstatut
+        )
+        VALUES (
+            'Local',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.surface, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
+        )
+        RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
+
+		-- On insère les données dans la table geo_local, en utilisant le même id_entite
+        INSERT INTO r_patbat.geo_local (id_entite, geom, id_site, id_bati, etage)
+        VALUES (nouvel_id, NEW.geom, v_id_site, v_id_bati, NEW.etage);
+
+        RETURN NEW;
+
+	-- si l'opération réalisée sur la vue est un UPDATE
+    ELSIF TG_OP = 'UPDATE' THEN
+        UPDATE r_patbat.an_entite -- on update la table an_entite
+        SET ref_code = NEW.ref_code,
+            nom_court = NEW.nom_court,
+            nom_long = NEW.nom_long,
+            superficie = NEW.superficie,
+			surface = NEW.surface,
+            categorie = NEW.categorie,
+            observ = NEW.observ,
+			type_etablissement = NEW.type_etablissement,
+			dbstatut = NEW.dbstatut
+        WHERE id_entite = OLD.id_entite;
+
+        UPDATE r_patbat.geo_local -- on update la table geo_local
+        SET geom = NEW.geom, etage = NEW.etage
+        WHERE id_entite = OLD.id_entite;
+
+        RETURN NEW;
+
+	-- si l'opération réalisée sur la vue est un DELETE
+    ELSIF TG_OP = 'DELETE' THEN
+		
+		IF OLD.dbstatut = '20' THEN -- si le local est désactivé (dbstatut = '20') alors
+			DELETE FROM r_patbat.geo_local WHERE id_entite = OLD.id_entite; -- delete le local de la table geo_local
+        	DELETE FROM r_patbat.an_entite WHERE id_entite = OLD.id_entite; -- delete le local de la table entité
+		
+		ELSE -- si le local est activée (dbstatut = '10')
+			UPDATE r_patbat.an_entite -- on désactive le local (dbstatut = '20')
+			SET dbstatut = '20' 
+			WHERE id_entite = OLD.id_entite;
+		END IF;
+        
+        RETURN OLD;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION r_patbat.ft_m_gestion_v_local IS 'Fonction qui transforme les opérations passées dans la vue de regroupement de données entre les tables entité et local, par des opérations directement dans ces tables';
+
+
+CREATE or replace TRIGGER t_t1_gestion_v_local
+INSTEAD OF INSERT OR UPDATE OR DELETE ON r_patbat.geo_v_patbat_local
+FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_gestion_v_local();
+
+COMMENT ON TRIGGER t_t1_gestion_v_local ON r_patbat.geo_v_patbat_local IS 'Trigger se déclanchant a l''insert, update, ou delete de la vue de regroupement de données entre les tables entité et local, appelant la fonction pour réaliser ces opérations directement dans les tables ';
+
+
 -----------------------------------------------------------------------------------------
 --																					   --
 --							FONCTIONS DE REMPLISSAGE D'ATTRIBUTS					   --
@@ -688,7 +904,6 @@ BEGIN
     LIMIT 1;
 
     -- 2. On met à jour la table entité avec l'ID de l'entité
-   
     UPDATE r_patbat.an_entite
        SET commune = v_commune, insee = v_insee
        WHERE id_entite = NEW.id_entite;
@@ -759,8 +974,8 @@ RETURNS TRIGGER AS $$
 BEGIN
     -- Mise à jour de la table entité avec un tableau contenant toutes les parcelles intersectées
     UPDATE r_patbat.an_entite  
-    SET parcelles = ARRAY(
-        SELECT p.idu_60 
+    SET parcelles = ARRAY( -- tableau contenant les parcelles sur lesquelles se trouvent l'entité 
+        SELECT geo_parcelle 
         FROM r_cadastre.geo_parcelle p 
         WHERE ST_Intersects(NEW.geom, p.geom)
     )
