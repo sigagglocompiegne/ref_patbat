@@ -18,18 +18,24 @@ comment on table r_patbat.lt_patbat_categorie is 'Table de valeur des categories
 comment on column r_patbat.lt_patbat_categorie.code is 'Code de la categorie';
 comment on column r_patbat.lt_patbat_categorie.valeur is 'Valeur de la catégorie';
 
+CREATE TABLE r_patbat.lt_patbat_niveau(
+	code serial PRIMARY KEY,
+	valeur varchar UNIQUE 
+);
+COMMENT ON TABLE r_patbat.lt_patbat_niveau IS 'Table de valeur des niveaux d''entités(site,bati...)';
+COMMENT ON COLUMN r_patbat.lt_patbat_niveau.code IS 'Code du niveau d''entité';
+COMMENT ON COLUMN r_patbat.lt_patbat_niveau.valeur IS 'Valeur du niveau d''entité';
+
 create table r_patbat.an_patbat_entite( -- sous-categorie, contacts, orga_roles, pièces jointes, adresses en table de relations
 	id_entite serial primary key,
-	type_entite varchar, -- site, UF, .
+	niveau varchar, -- site, UF, .
 	ref_code varchar,
-	nom_court varchar,
-	nom_long varchar,
+	nom_usage varchar,
+	nom_officiel varchar,
 	superficie int, -- établir un cadre, harmonisation
-	surface_sol varchar, 
-	surface_dvp varchar,
 	categorie varchar, --talbe de valeur
-	type_etablissement VARCHAR[], -- Contiendra ['ERP'], ['ERT'] ou ['ERP', 'ERT']
-    parcelles VARCHAR[],           -- Contiendra les IDs des parcelles, ex: ['000AB01', '000AB02']
+	type_etablissement VARCHAR, -- Contiendra 'ERP','ERT' ou 'ERP','ERT'
+    parcelles VARCHAR,           -- Contiendra les IDs des parcelles, ex: ['000AB01', '000AB02']
 	insee varchar, -- lien geo_commune	
 	commune varchar, -- lien geo_commune
 	observ varchar,
@@ -39,7 +45,8 @@ create table r_patbat.an_patbat_entite( -- sous-categorie, contacts, orga_roles,
 	dbupdate timestamp with time zone,
 	dbstatut VARCHAR(2) NOT NULL DEFAULT '10' CHECK (dbstatut IN ('10', '11')),
 	
-	constraint fk_an_entite_categorie foreign key(categorie) references r_patbat.lt_patbat_categorie(code)
+	constraint fk_an_entite_categorie foreign key(categorie) references r_patbat.lt_patbat_categorie(code),
+	CONSTRAINT fk_an_entite_niveau FOREIGN key(niveau) REFERENCES r_patbat.lt_patbat_niveau(valeur)
 );
 comment on table r_patbat.an_patbat_entite is 'Classe attributaire regroupant les informations de toutes les entités du référentiel patrimoine bâtiment';
 comment on column r_patbat.an_patbat_entite.id_entite is 'Identifiant unique de l''entité ';
@@ -235,15 +242,6 @@ comment on table r_patbat.lk_patbat_doc is 'Classe de relation entre les entites
 comment on column r_patbat.lk_patbat_doc.id_entite is 'Identifiant de l''entite';
 comment on column r_patbat.lk_patbat_doc.id_doc is 'identifiant du document';
 
-create table r_patbat.an_patbat_adresse(
-	id_adresse int primary key,
-	nom varchar
-);
-comment on table r_patbat.an_patbat_adresse is 'Classe attributaire regroupant les informations sur les adresses';
-comment on column r_patbat.an_patbat_adresse.id_adresse is 'Identifiant unique de l''adressse';
-comment on column r_patbat.an_patbat_adresse.nom is 'Nom de l''adresse';
-
-
 create table r_patbat.lk_patbat_adresse(
 	id_entite int,
 	id_adresse int,
@@ -290,10 +288,8 @@ CREATE TABLE r_patbat.lk_patbat_pdl(
 create or replace view r_patbat.geo_v_patbat_site as 
 	select e.ref_code,
 	e.id_entite,
-	e.nom_court,
-	e.nom_long,
-	e.surface_sol, 
-	e.surface_dvp,
+	e.nom_usage,
+	e.nom_officiel,
 	e.categorie,
 	e.observ,
 	e.type_etablissement,
@@ -319,17 +315,21 @@ BEGIN
 		RAISE EXCEPTION 'Le site se superpose à un autre site actif';
 	END IF;
 
-	IF NEW.nom_court is null then 
-		raise exception 'Le site doit au moins avoir un nom court';
+	IF (SELECT count(*) FROM r_osm.geo_osm_commune c WHERE ST_Intersects(NEW.geom, c.geom) AND NOT ST_Touches(NEW.geom, c.geom)) > 1 THEN 
+		RAISE EXCEPTION 'Le site est compris dans 2 communes différentes';
+	END IF;
+
+	IF NEW.nom_usage is null then 
+		raise exception 'Le site doit au moins avoir un nom d''usage';
 	end if; 
 
 	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite 
-            type_entite,ref_code, nom_court, nom_long, surface_sol, surface_dvp, categorie, observ, type_etablissement, dbstatut
+            niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut
         )
         VALUES (
-            'Site',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.surface_sol, NEW.surface_dvp, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
+            'Site',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
@@ -343,10 +343,8 @@ BEGIN
     ELSIF TG_OP = 'UPDATE' THEN
         UPDATE r_patbat.an_patbat_entite -- on update la table an_entite
         SET ref_code = NEW.ref_code,
-            nom_court = NEW.nom_court,
-            nom_long = NEW.nom_long,
-			surface_sol = NEW.surface_sol, 
-			surface_dvp = NEW.surface_dvp,
+            nom_usage = NEW.nom_usage,
+            nom_officiel = NEW.nom_officiel,
             categorie = NEW.categorie,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement,
@@ -401,10 +399,8 @@ COMMENT ON TRIGGER t_t1_gestion_v_site ON r_patbat.geo_v_patbat_site IS 'Trigger
 create or replace view r_patbat.geo_v_patbat_ssite as 
 	select e.ref_code,
 	e.id_entite,
-	e.nom_court,
-	e.nom_long,
-	e.surface_sol, 
-	e.surface_dvp,
+	e.nom_usage,
+	e.nom_officiel,
 	e.categorie,
 	e.observ,
 	e.type_etablissement,
@@ -451,10 +447,10 @@ BEGIN
 	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
-            type_entite,ref_code, nom_court, nom_long, surface_sol, surface_dvp, categorie, observ, type_etablissement, dbstatut
+            niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut
         )
         VALUES (
-            'Sous-Site',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.surface_sol, NEW.surface_dvp, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
+            'Sous-Site',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
@@ -468,10 +464,8 @@ BEGIN
     ELSIF TG_OP = 'UPDATE' THEN
         UPDATE r_patbat.an_patbat_entite -- on update la table an_entite
         SET ref_code = NEW.ref_code,
-            nom_court = NEW.nom_court,
-            nom_long = NEW.nom_long,
-			surface_sol = NEW.surface_sol, 
-			surface_dvp = NEW.surface_dvp,
+            nom_usage = NEW.nom_usage,
+            nom_officiel = NEW.nom_officiel,
             categorie = NEW.categorie,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement,
@@ -521,11 +515,9 @@ COMMENT ON TRIGGER t_t1_gestion_v_ssite ON r_patbat.geo_v_patbat_ssite IS 'Trigg
 create or replace view r_patbat.geo_v_patbat_bati as 
 	select e.ref_code,
 	e.id_entite,
-	e.nom_court,
-	e.nom_long,
+	e.nom_usage,
+	e.nom_officiel,
 	e.superficie,
-	e.surface_sol,
-	e.surface_dvp,
 	e.categorie,
 	e.observ,
 	e.type_etablissement,
@@ -544,9 +536,9 @@ DECLARE
     nouvel_id INT; --variable dans laquelle on va stocker l'id_entite qu'on crée
 	v_id_site INT; -- l'id du site dans lequel est compris le bâtiment
 	v_statut_site VARCHAR; --le statut du site dans lequel est compris le bâtiment
-	v_nom_court_site varchar; -- le nom court du site dans lequel est compris le bâtiment 
+	v_nom_usage_site varchar; -- le nom court du site dans lequel est compris le bâtiment 
 BEGIN
-	SELECT s.id_entite, e.dbstatut, e.nom_court INTO v_id_site, v_statut_site, v_nom_court_site -- on stocke l'id et le statut du site actif dans lequel est compris le bâtiment
+	SELECT s.id_entite, e.dbstatut, e.nom_usage INTO v_id_site, v_statut_site, v_nom_usage_site -- on stocke l'id et le statut du site actif dans lequel est compris le bâtiment
 		FROM r_patbat.geo_patbat_site s 
 		JOIN r_patbat.an_patbat_entite e ON s.id_entite = e.id_entite
 		WHERE ST_CoveredBy(NEW.geom, s.geom) and e.dbstatut = '10';
@@ -574,15 +566,15 @@ BEGIN
 	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
 
-		IF NEW.nom_court is null then 
-			NEW.nom_court := v_nom_court_site || ' - Batiment sans nom' ;
+		IF NEW.nom_usage is null then 
+			NEW.nom_usage := v_nom_usage_site || ' - Batiment sans nom' ;
 		end if; 		
 
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
-            type_entite,ref_code, nom_court, nom_long, superficie, surface_sol, surface_dvp, categorie, observ, type_etablissement, dbstatut
+            niveau,ref_code, nom_usage, nom_officiel, superficie, categorie, observ, type_etablissement, dbstatut
         )
         VALUES (
-            'Bâtiment',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.surface_sol, NEW.surface_dvp, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
+            'Bâtiment',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
@@ -606,11 +598,9 @@ BEGIN
     ELSIF TG_OP = 'UPDATE' THEN
         UPDATE r_patbat.an_patbat_entite -- on update la table an_entite
         SET ref_code = NEW.ref_code,
-            nom_court = NEW.nom_court,
-            nom_long = NEW.nom_long,
+            nom_usage = NEW.nom_usage,
+            nom_officiel = NEW.nom_officiel,
             superficie = NEW.superficie,
-			surface_sol = NEW.surface_sol, 
-			surface_dvp = NEW.surface_dvp,
             categorie = NEW.categorie,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement,
@@ -678,12 +668,10 @@ COMMENT ON TRIGGER t_t1_gestion_v_bati ON r_patbat.geo_v_patbat_bati IS 'Trigger
 create or replace view r_patbat.geo_v_patbat_unite_fonc as 
 	select e.ref_code,
 	e.id_entite,
-	e.nom_court,
-	e.nom_long,
+	e.nom_usage,
+	e.nom_officiel,
 	e.superficie,
 	e.categorie,
-	e.surface_sol, 
-	e.surface_dvp,
 	e.observ,
 	e.type_etablissement,
 	e.dbstatut,
@@ -702,7 +690,7 @@ DECLARE
 	v_nom_bati varchar; -- le nom court du bâti dans lequel se trouve l'unité fonctionnelle
 BEGIN
 	
-	SELECT dbstatut, nom_court, insee, commune INTO v_statut_bati, v_nom_bati, v_insee_bati, v_commune_bati -- on va chercher le statut du bâtiment dans lequel se trouve l'unité fonctionnelle
+	SELECT dbstatut, nom_usage, insee, commune INTO v_statut_bati, v_nom_bati-- on va chercher le statut du bâtiment dans lequel se trouve l'unité fonctionnelle
 	FROM r_patbat.an_patbat_entite 
 	WHERE id_entite = NEW.id_bati;
 
@@ -715,17 +703,17 @@ BEGIN
 		RAISE EXCEPTION 'Impossible d''insérer ou de rendre actif une unité fonctionnelle dans un site désactivé (dbstatut = 11)';
 	END IF;
 
-	IF NEW.nom_court is null then
-		NEW.nom_court := v_nom_bati || ' - Unité fonctionnelle sans nom';
+	IF NEW.nom_usage is null then
+		NEW.nom_usage := v_nom_bati || ' - Unité fonctionnelle sans nom';
 	end if;  
 
 	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
-            type_entite,ref_code, nom_court, nom_long, superficie, surface_sol, surface_dvp, categorie, observ, type_etablissement, dbstatut
+            niveau,ref_code, nom_usage, nom_officiel, superficie, categorie, observ, type_etablissement, dbstatut
         )
         VALUES (
-            'Unité fonctionnelle',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.surface_sol, NEW.surface_dvp, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
+            'Unité',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
@@ -739,11 +727,9 @@ BEGIN
     ELSIF TG_OP = 'UPDATE' THEN
         UPDATE r_patbat.an_patbat_entite -- on update la table an_entite
         SET ref_code = NEW.ref_code,
-            nom_court = NEW.nom_court,
-            nom_long = NEW.nom_long,
+            nom_usage = NEW.nom_usage,
+            nom_officiel = NEW.nom_officiel,
             superficie = NEW.superficie,
-			surface_sol = NEW.surface_sol, 
-			surface_dvp = NEW.surface_dvp,
             categorie = NEW.categorie,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement,
@@ -793,12 +779,10 @@ COMMENT ON TRIGGER t_t1_gestion_v_unite_fonc ON r_patbat.geo_v_patbat_unite_fonc
 create or replace view r_patbat.geo_v_patbat_local as 
 	select e.ref_code,
 	e.id_entite,
-	e.nom_court,
-	e.nom_long,
+	e.nom_usage,
+	e.nom_officiel,
 	e.superficie,
 	e.categorie,
-	e.surface_sol, 
-	e.surface_dvp,
 	e.observ,
 	e.type_etablissement,
 	e.dbstatut,
@@ -833,10 +817,10 @@ BEGIN
 	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
-            type_entite,ref_code, nom_court, nom_long, superficie, surface_sol, surface_dvp, categorie, observ, type_etablissement, dbstatut
+            niveau,ref_code, nom_usage, nom_officiel, superficie, categorie, observ, type_etablissement, dbstatut
         )
         VALUES (
-            'Local',NEW.ref_code, NEW.nom_court, NEW.nom_long, NEW.superficie, NEW.surface_sol, NEW.surface_dvp, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
+            'Local',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
@@ -850,11 +834,9 @@ BEGIN
     ELSIF TG_OP = 'UPDATE' THEN
         UPDATE r_patbat.an_patbat_entite -- on update la table an_entite
         SET ref_code = NEW.ref_code,
-            nom_court = NEW.nom_court,
-            nom_long = NEW.nom_long,
+            nom_usage = NEW.nom_usage,
+            nom_officiel = NEW.nom_officiel,
             superficie = NEW.superficie,
-			surface_sol = NEW.surface_sol, 
-			surface_dvp = NEW.surface_dvp,
             categorie = NEW.categorie,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement,
@@ -915,9 +897,9 @@ DECLARE
     v_insee VARCHAR;
 BEGIN
     -- 1. On récupère les valeurs grâce à l'intersection spatiale
-    SELECT c.tex2, '60' || c.idu
-    INTO v_commune, v_insee
-    FROM r_cadastre.geo_commune c
+    SELECT insee, commune_m
+    INTO  v_insee, v_commune
+    FROM r_osm.geo_osm_commune c
     WHERE ST_Intersects(NEW.geom, c.geom)
     LIMIT 1;
 
@@ -991,10 +973,10 @@ COMMENT ON TRIGGER t_t2_dbupdate_dbinsert ON r_patbat.an_patbat_entite IS 'Trigg
 CREATE OR REPLACE FUNCTION ft_r_parcelles()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Mise à jour de la table entité avec un tableau contenant toutes les parcelles intersectées
+    -- Mise à jour de la table entité avec un texte contenant toutes les parcelles intersectées, séparées par un ;
     UPDATE r_patbat.an_patbat_entite  
-    SET parcelles = ARRAY( -- tableau contenant les parcelles sur lesquelles se trouvent l'entité 
-        SELECT geo_parcelle 
+    SET parcelles = ( 
+        SELECT string_agg(geo_parcelle, ';') 
         FROM r_cadastre.geo_parcelle p 
         WHERE ST_Intersects(NEW.geom, p.geom)
     )
@@ -1036,3 +1018,27 @@ EXECUTE FUNCTION ft_r_parcelles();
 COMMENT ON TRIGGER t_t3_parcelles ON r_patbat.an_patbat_unite_fonc IS 'Trigger récupérant les parcelles dans lesquelles se trouvent l''unité fonctionnelle après un insert ou un update';
 */
 
+-----------------------------------------------------------------------------------------
+--                                       PARCELLES                                     --
+-----------------------------------------------------------------------------------------
+
+
+-- fonction de nettoyage par rapport a QGIS 
+CREATE OR REPLACE FUNCTION r_patbat.ft_r_nettoyage_qgis_multiselect()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Si le champ contient des données, on efface les accolades et guillemets, et on change la virgule en point-virgule
+    IF NEW.type_etablissement IS NOT NULL THEN
+        NEW.type_etablissement := replace(translate(NEW.type_etablissement, '{}""', ''), ',', ';');
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION r_patbat.ft_r_nettoyage_qgis_multiselect IS 'Nettoie le texte envoyé par QGIS lors des sélections multiples (transforme {"A","B"} en A;B)';
+
+-- Trigger sur la table entité
+CREATE TRIGGER t_nettoyage_qgis_multiselect
+BEFORE INSERT OR UPDATE ON r_patbat.an_patbat_entite
+FOR EACH ROW
+EXECUTE FUNCTION r_patbat.ft_r_nettoyage_qgis_multiselect();
