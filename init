@@ -32,7 +32,6 @@ create table r_patbat.an_patbat_entite( -- sous-categorie, contacts, orga_roles,
 	ref_code varchar,
 	nom_usage varchar,
 	nom_officiel varchar,
-	superficie int, -- établir un cadre, harmonisation
 	categorie varchar, --talbe de valeur
 	type_etablissement VARCHAR, -- Contiendra 'ERP','ERT' ou 'ERP','ERT'
     parcelles VARCHAR,           -- Contiendra les IDs des parcelles, ex: ['000AB01', '000AB02']
@@ -55,6 +54,9 @@ comment on column r_patbat.an_patbat_entite.id_entite is 'Identifiant unique de 
 create table r_patbat.geo_patbat_site(
 	id_entite int primary key,
 	geom geometry(MultiPolygon, 2154),
+	supsol int,
+	supsol_tot_bati int,
+	supdvp_tot_bati int,
 	
 	constraint fk_geo_site_entite foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite)
 );
@@ -66,6 +68,8 @@ create table r_patbat.geo_patbat_ssite(
 	id_entite int primary key,
 	id_site int,
 	geom geometry(MultiPolygon, 2154),
+	supsol int,
+	supsol_tot_bati int,
 	
 	constraint fk_geo_patbat_ssite_entite foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite),
 	constraint fk_geo_patbat_ssite_site foreign key (id_site) references r_patbat.geo_patbat_site(id_entite)
@@ -79,6 +83,9 @@ create table r_patbat.geo_patbat_bati(
 	id_site int ,
 	etat varchar, --table de valeurs 
 	geom geometry(MultiPolygon, 2154),	
+	supsol int,
+	supdvp int,
+	nb_etage int,
 	
 	constraint fk_geo_bati_entite foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite),
 	constraint fk_geo_bati_site foreign key (id_site) references r_patbat.geo_patbat_site(id_entite),
@@ -91,6 +98,7 @@ comment on column r_patbat.geo_patbat_bati.id_entite is 'Identifiant de l''entit
 create table r_patbat.an_patbat_unite_fonc(
 	id_entite int primary key,	
 	id_bati int,
+	supdvp int,
 	
 	constraint fk_an_unite_fonc_entite foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite),
 	CONSTRAINT fk_an_unite_fonc_id_bati FOREIGN KEY (id_bati) REFERENCES r_patbat.an_patbat_entite(id_entite)
@@ -103,8 +111,7 @@ COMMENT ON COLUMN r_patbat.an_patbat_unite_fonc.id_bati IS 'Identifiant du bâti
 create table r_patbat.an_patbat_local(
 	id_entite int primary key,
 	id_uf int,
-	etage int NOT null, 
-
+	supdvp int, 				
 	
 	constraint fk_an_local_entite foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite),
 	CONSTRAINT fk_an_local_id_uf FOREIGN KEY (id_uf) REFERENCES r_patbat.an_patbat_unite_fonc(id_entite)
@@ -112,7 +119,6 @@ create table r_patbat.an_patbat_local(
 comment on table r_patbat.an_patbat_local is 'Classe attributaire regroupant les informations de tout les locaux';
 comment on column r_patbat.an_patbat_local.id_entite is 'Identifiant de l''entité';
 COMMENT ON COLUMN r_patbat.an_patbat_local.id_uf IS 'Identifiant de l''unite fonctionnelle dans laquelle se trouve le local';
-COMMENT ON COLUMN r_patbat.an_patbat_local.etage IS 'Numéro de l''étage dans lequel se trouve le local';
 
 -- Table des fonctions de contacts (Liste de valeurs)
 CREATE TABLE r_patbat.lt_patbat_fonction (
@@ -247,8 +253,7 @@ create table r_patbat.lk_patbat_adresse(
 	id_adresse int,
 	
 	constraint pk_lk_adresse primary key(id_entite,id_adresse),
-	constraint fk_lk_adresse_entite foreign key(id_entite) references r_patbat.an_patbat_entite(id_entite),
-	constraint fk_lk_adresse_an_adresse foreign key(id_adresse) references r_patbat.an_patbat_adresse(id_adresse)
+	constraint fk_lk_adresse_entite foreign key(id_entite) references r_patbat.an_patbat_entite(id_entite)
 );
 comment on table r_patbat.lk_patbat_adresse is 'Table de relation entre les entites et les adresses';
 comment on column r_patbat.lk_patbat_adresse.id_entite is 'Identifiant de l''entite';
@@ -261,13 +266,27 @@ CREATE TABLE r_patbat.lt_patbat_type_eta( -- Table utilisée dans QGIS pour fair
 
 COMMENT ON TABLE r_patbat.lt_patbat_type_eta IS 'Table de valeurs des différents types d''établissements';
 
+CREATE TABLE r_patbat.lt_patbat_fluide (
+    code VARCHAR(10) PRIMARY KEY,
+    valeur VARCHAR(50) NOT NULL
+);
+
 CREATE TABLE r_patbat.geo_patbat_pdl(
 	id_pdl INt PRIMARY KEY ,
+	code_ref varchar,
 	geom Geometry(Point,2154),
 	type_fluide varchar, -- clé étrangère ? 
-	type_compteur varchar,
-	id_compt int -- id du compteur au dessus ? 
-);
+	puissance int,
+	type_compteur varchar DEFAULT 'Compteur principal' CHECK (type_compteur IN ('Compteur principal', 'Sous-compteur')),
+	id_compteur_parent int, -- id du compteur au dessus ? 
+
+	CONSTRAINT fk_geo_patbat_pdl_fluide FOREIGN KEY(type_fluide) REFERENCES r_patbat.lt_patbat_fluide(code),
+	CONSTRAINT fk_pdl_parent FOREIGN KEY (id_compteur_parent) REFERENCES r_patbat.geo_patbat_pdl(id_pdl) ON DELETE SET NULL,    
+    -- Empêcher un compteur principal d'avoir un parent
+    CONSTRAINT chk_logique_sous_compteur CHECK (
+        (type_compteur = 'Compteur principal' AND id_compteur_parent IS NULL) OR 
+        (type_compteur = 'Sous-compteur')
+));
 
 CREATE TABLE r_patbat.lk_patbat_pdl(
 	id_entite int,
@@ -294,7 +313,8 @@ create or replace view r_patbat.geo_v_patbat_site as
 	e.observ,
 	e.type_etablissement,
 	e.dbstatut,
-	s.geom
+	s.geom,
+	s.supsol
 	from r_patbat.an_patbat_entite e
  	join r_patbat.geo_patbat_site s on e.id_entite = s.id_entite;
 
@@ -319,7 +339,7 @@ BEGIN
 		RAISE EXCEPTION 'Le site est compris dans 2 communes différentes';
 	END IF;
 
-	IF NEW.nom_usage is null then 
+	IF NEW.nom_usage is null and TG_OP != 'DELETE' then --protection au delete 
 		raise exception 'Le site doit au moins avoir un nom d''usage';
 	end if; 
 
@@ -334,13 +354,36 @@ BEGIN
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
 		-- On insère les données dans la table geo_site, en utilisant le même id_entite
-        INSERT INTO r_patbat.geo_patbat_site (id_entite, geom)
-        VALUES (nouvel_id, NEW.geom);
+        INSERT INTO r_patbat.geo_patbat_site (id_entite, geom, supsol)
+        VALUES (nouvel_id, NEW.geom, ROUND(ST_Area(NEW.geom)::numeric));
 
         RETURN NEW;
 
 	-- si l'opération réalisée sur la vue est un UPDATE
     ELSIF TG_OP = 'UPDATE' THEN
+
+		-- Transformation d'un UPDATE ou on désactiverai le bâtiment vers un DELETE 
+		IF NEW.dbstatut != old.dbstatut and new.dbstatut = '11' then
+			NEW.dbstatut := '10';
+			DELETE FROM r_patbat.geo_v_patbat_site WHERE id_entite = NEW.id_entite;
+		END IF;  
+
+		-- Si on change la géométrie du site alors on teste si il existe un sous-site ou un bâtiment qui n'est plus compris dans le site dans lequel il était compris
+		IF NEW.geom != old.geom and new.dbstatut = '10' then 
+			-- Sous-site
+			IF EXISTS (SELECT 1 FROM r_patbat.geo_patbat_ssite ss
+						JOIN r_patbat.an_patbat_entite e ON e.id_entite = ss.id_entite 
+						WHERE ss.id_site = NEW.id_entite and e.dbstatut = '10' and NOT ST_CoveredBy(ss.geom,NEW.geom)) then
+			 RAISE EXCEPTION 'Un sous-site n'' est plus compris dans un site';
+			END IF;
+			-- Bati
+			IF EXISTS (SELECT 1 FROM r_patbat.geo_patbat_bati b
+						JOIN r_patbat.an_patbat_entite e ON e.id_entite = b.id_entite 
+						WHERE b.id_site = NEW.id_entite and e.dbstatut = '10' and NOT ST_CoveredBy(b.geom,NEW.geom)) then
+			 RAISE EXCEPTION 'Un bâtiment n'' est plus compris dans un site';
+			END IF;
+		end if; 
+
         UPDATE r_patbat.an_patbat_entite -- on update la table an_entite
         SET ref_code = NEW.ref_code,
             nom_usage = NEW.nom_usage,
@@ -352,7 +395,8 @@ BEGIN
         WHERE id_entite = OLD.id_entite;
 
         UPDATE r_patbat.geo_patbat_site -- on update la table geo_site
-        SET geom = NEW.geom
+        SET geom = NEW.geom,
+		supsol = ROUND(ST_Area(NEW.geom)::numeric)
         WHERE id_entite = OLD.id_entite;
 
         RETURN NEW;
@@ -405,7 +449,8 @@ create or replace view r_patbat.geo_v_patbat_ssite as
 	e.observ,
 	e.type_etablissement,
 	e.dbstatut,
-	ss.geom
+	ss.geom,
+	ss.supsol
 	from r_patbat.an_patbat_entite e
  	join r_patbat.geo_patbat_ssite ss on e.id_entite = ss.id_entite;
 
@@ -455,8 +500,10 @@ BEGIN
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
 		-- On insère les données dans la table .geo_patbat_ssite, en utilisant le même id_entite et le v_id_site récupéré
-        INSERT INTO r_patbat.geo_patbat_ssite (id_entite, geom, id_site)
-        VALUES (nouvel_id, NEW.geom, v_id_site );
+        INSERT INTO r_patbat.geo_patbat_ssite (id_entite, geom, id_site, supsol)
+        VALUES (nouvel_id, NEW.geom, v_id_site, ROUND(ST_Area(NEW.geom)::numeric) );
+
+		PERFORM r_patbat.ft_r_maj_supsol_ssite(nouvel_id);
 
         RETURN NEW;
 
@@ -473,8 +520,11 @@ BEGIN
         WHERE id_entite = OLD.id_entite;
 
         UPDATE r_patbat.geo_patbat_ssite -- on update la table .geo_patbat_ssite
-        SET geom = NEW.geom
+        SET geom = NEW.geom,
+		supsol = ROUND(ST_Area(NEW.geom)::numeric)
         WHERE id_entite = OLD.id_entite;
+
+		PERFORM r_patbat.ft_r_maj_supsol_ssite(NEW.id_entite);
 
         RETURN NEW;
 
@@ -517,11 +567,13 @@ create or replace view r_patbat.geo_v_patbat_bati as
 	e.id_entite,
 	e.nom_usage,
 	e.nom_officiel,
-	e.superficie,
+	b.supsol,
+	b.supdvp,
 	e.categorie,
 	e.observ,
 	e.type_etablissement,
 	e.dbstatut,
+	b.nb_etage,
 	b.geom,
 	b.etat
 	from r_patbat.an_patbat_entite e
@@ -537,6 +589,7 @@ DECLARE
 	v_id_site INT; -- l'id du site dans lequel est compris le bâtiment
 	v_statut_site VARCHAR; --le statut du site dans lequel est compris le bâtiment
 	v_nom_usage_site varchar; -- le nom court du site dans lequel est compris le bâtiment 
+	r RECORD; -- variable de boucle 
 BEGIN
 	SELECT s.id_entite, e.dbstatut, e.nom_usage INTO v_id_site, v_statut_site, v_nom_usage_site -- on stocke l'id et le statut du site actif dans lequel est compris le bâtiment
 		FROM r_patbat.geo_patbat_site s 
@@ -571,28 +624,21 @@ BEGIN
 		end if; 		
 
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
-            niveau,ref_code, nom_usage, nom_officiel, superficie, categorie, observ, type_etablissement, dbstatut
+            niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut
         )
         VALUES (
-            'Bâtiment',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
+            'Bâtiment',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
 		-- On insère les données dans la table geo_bati, en utilisant le même id_entite et le v_id_site récupéré
-        INSERT INTO r_patbat.geo_patbat_bati (id_entite, geom, etat, id_site)
-        VALUES (nouvel_id, NEW.geom, NEW.etat, v_id_site);
-
-		-- mise à jour de la superficie du site, en additionnant les superficies des bâitments actifs compris dans le site
-		UPDATE r_patbat.an_patbat_entite 
-		SET superficie = (
-			SELECT SUM(e.superficie) 
-			FROM r_patbat.geo_patbat_bati b 
-			JOIN r_patbat.an_patbat_entite e ON b.id_entite = e.id_entite 
-			WHERE b.id_site = v_id_site AND e.dbstatut = '10'
-		)
-		WHERE id_entite = v_id_site;
-
-        RETURN NEW;
+        INSERT INTO r_patbat.geo_patbat_bati (id_entite, geom, etat, id_site,supsol,supdvp)
+        VALUES (nouvel_id, NEW.geom, NEW.etat, v_id_site,ROUND(ST_Area(NEW.geom)::numeric),NEW.supdvp);
+  
+		-- On lance la fonction de calcul de total surface sol des bâtimetns dans un sous-site pour tout les sous-sites dans lesquel est compris le bâtiments 
+		FOR r IN (SELECT id_entite FROM r_patbat.geo_patbat_ssite WHERE ST_Intersects(NEW.geom, geom)) LOOP
+            PERFORM r_patbat.ft_r_maj_supsol_ssite(r.id_entite); 
+        END LOOP;
 
 	-- si l'opération réalisée sur la vue est un UPDATE
     ELSIF TG_OP = 'UPDATE' THEN
@@ -600,7 +646,6 @@ BEGIN
         SET ref_code = NEW.ref_code,
             nom_usage = NEW.nom_usage,
             nom_officiel = NEW.nom_officiel,
-            superficie = NEW.superficie,
             categorie = NEW.categorie,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement,
@@ -608,20 +653,20 @@ BEGIN
         WHERE id_entite = OLD.id_entite;
 
         UPDATE r_patbat.geo_patbat_bati -- on update la table geo_bati
-        SET geom = NEW.geom, etat = NEW.etat
+        SET geom = NEW.geom, 
+		etat = NEW.etat,
+		supsol = ROUND(ST_Area(NEW.geom)::numeric),
+		supdvp = NEW.supdvp
         WHERE id_entite = OLD.id_entite;
 
-		-- mise à jour de la superficie du site, en additionnant les superficies des bâitments actifs compris dans le site
-		UPDATE r_patbat.an_patbat_entite 
-		SET superficie = (
-			SELECT SUM(e.superficie) 
-			FROM r_patbat.geo_patbat_bati b 
-			JOIN r_patbat.an_patbat_entite e ON b.id_entite = e.id_entite 
-			WHERE b.id_site = v_id_site AND e.dbstatut = '10'
-				)
-			WHERE id_entite = v_id_site;
-
-        RETURN NEW;
+		-- on recalcule le total surface sol des bâtimetns dans l'ancien sous-site ou se trouvait le bâtiment, ainsi que dans le nouveau
+		FOR r IN (
+            SELECT id_entite FROM r_patbat.geo_patbat_ssite WHERE ST_Intersects(NEW.geom, geom)
+            UNION
+            SELECT id_entite FROM r_patbat.geo_patbat_ssite WHERE ST_Intersects(OLD.geom, geom)
+        ) LOOP
+            PERFORM r_patbat.ft_r_maj_supsol_ssite(r.id_entite); 
+        END LOOP;
 
 	-- si l'opération réalisée sur la vue est un DELETE
     ELSIF TG_OP = 'DELETE' THEN
@@ -636,19 +681,35 @@ BEGIN
 			WHERE id_entite = OLD.id_entite;
 		END IF;
 
--- mise à jour de la superficie du site, en additionnant les superficies des bâitments actifs compris dans le site
-		UPDATE r_patbat.an_patbat_entite 
-		SET superficie = (
-			SELECT SUM(e.superficie) 
+		--on recalcule le total surface sol des bâtimetns dans l'ancien sous-site ou se trouvait le bâtiment 
+		FOR r IN (SELECT id_entite FROM r_patbat.geo_patbat_ssite WHERE ST_Intersects(OLD.geom, geom)) LOOP
+            PERFORM r_patbat.ft_r_maj_supsol_ssite(r.id_entite);
+        END LOOP;
+    END IF;
+
+
+	-- mise à jour de la supsol du site, en additionnant les supsols des bâitments actifs compris dans le site
+		UPDATE r_patbat.geo_patbat_site
+		SET supsol_tot_bati = (
+			SELECT SUM(b.supsol) 
 			FROM r_patbat.geo_patbat_bati b 
 			JOIN r_patbat.an_patbat_entite e ON b.id_entite = e.id_entite 
 			WHERE b.id_site = v_id_site AND e.dbstatut = '10'
-        )
-			WHERE id_entite = v_id_site;
+		),
+		supdvp_tot_bati = (
+			SELECT SUM(b.supdvp) 
+			FROM r_patbat.geo_patbat_bati b 
+			JOIN r_patbat.an_patbat_entite e ON b.id_entite = e.id_entite 
+			WHERE b.id_site = v_id_site AND e.dbstatut = '10'
+		)
+		WHERE id_entite = v_id_site;
+
+
+		IF TG_OP = 'DELETE' THEN
         RETURN OLD;
+    ELSE
+        RETURN NEW;
     END IF;
-    
-    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -670,7 +731,7 @@ create or replace view r_patbat.geo_v_patbat_unite_fonc as
 	e.id_entite,
 	e.nom_usage,
 	e.nom_officiel,
-	e.superficie,
+	uf.supdvp,
 	e.categorie,
 	e.observ,
 	e.type_etablissement,
@@ -710,16 +771,16 @@ BEGIN
 	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
-            niveau,ref_code, nom_usage, nom_officiel, superficie, categorie, observ, type_etablissement, dbstatut
+            niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut
         )
         VALUES (
-            'Unité',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
+            'Unité',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
 		-- On insère les données dans la table an_unite_fonc, en utilisant le même id_entite
-        INSERT INTO r_patbat.an_patbat_unite_fonc (id_entite, id_bati)
-        VALUES (nouvel_id, NEW.id_bati);
+        INSERT INTO r_patbat.an_patbat_unite_fonc (id_entite, id_bati, supdvp)
+        VALUES (nouvel_id, NEW.id_bati, NEW.supdvp);
 
         RETURN NEW;
 
@@ -729,7 +790,6 @@ BEGIN
         SET ref_code = NEW.ref_code,
             nom_usage = NEW.nom_usage,
             nom_officiel = NEW.nom_officiel,
-            superficie = NEW.superficie,
             categorie = NEW.categorie,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement,
@@ -737,7 +797,8 @@ BEGIN
         WHERE id_entite = OLD.id_entite;
 
         UPDATE r_patbat.an_patbat_unite_fonc -- on update la table an_unite_fonc
-        SET id_bati = NEW.id_bati
+        SET id_bati = NEW.id_bati,
+		supdvp = NEW.supdvp
         WHERE id_entite = OLD.id_entite;
 
         RETURN NEW;
@@ -781,13 +842,12 @@ create or replace view r_patbat.geo_v_patbat_local as
 	e.id_entite,
 	e.nom_usage,
 	e.nom_officiel,
-	e.superficie,
+	l.supdvp,
 	e.categorie,
 	e.observ,
 	e.type_etablissement,
 	e.dbstatut,
-	l.id_uf,
-	l.etage
+	l.id_uf
 	from r_patbat.an_patbat_entite e
  	join r_patbat.an_patbat_local l on e.id_entite = l.id_entite;
 
@@ -817,16 +877,16 @@ BEGIN
 	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
-            niveau,ref_code, nom_usage, nom_officiel, superficie, categorie, observ, type_etablissement, dbstatut
+            niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut
         )
         VALUES (
-            'Local',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.superficie, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
+            'Local',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel,  NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
 		-- On insère les données dans la table an_local, en utilisant le même id_entite
-        INSERT INTO r_patbat.an_patbat_local (id_entite, id_uf, etage)
-        VALUES (nouvel_id, NEW.id_uf, NEW.etage);
+        INSERT INTO r_patbat.an_patbat_local (id_entite, id_uf, supdvp)
+        VALUES (nouvel_id, NEW.id_uf, NEW.supdvp);
 
         RETURN NEW;
 
@@ -836,7 +896,6 @@ BEGIN
         SET ref_code = NEW.ref_code,
             nom_usage = NEW.nom_usage,
             nom_officiel = NEW.nom_officiel,
-            superficie = NEW.superficie,
             categorie = NEW.categorie,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement,
@@ -844,7 +903,8 @@ BEGIN
         WHERE id_entite = OLD.id_entite;
 
         UPDATE r_patbat.an_patbat_local -- on update la table an_local
-        SET id_uf = NEW.id_uf, etage = NEW.etage
+        SET id_uf = NEW.id_uf,
+			supdvp = NEW.supdvp
         WHERE id_entite = OLD.id_entite;
 
         RETURN NEW;
@@ -1042,3 +1102,25 @@ CREATE TRIGGER t_nettoyage_qgis_multiselect
 BEFORE INSERT OR UPDATE ON r_patbat.an_patbat_entite
 FOR EACH ROW
 EXECUTE FUNCTION r_patbat.ft_r_nettoyage_qgis_multiselect();
+
+
+-----------------------------------------------------------------------------------------
+--                              CALCUL SUPERFICIE SOL SSITE                            --
+-----------------------------------------------------------------------------------------
+
+-- Calcule la somme de la surface au sol des bâtiments compris dans un sous-site 
+CREATE OR REPLACE FUNCTION r_patbat.ft_r_maj_supsol_ssite(p_id_ssite INT)
+RETURNS VOID AS $$
+BEGIN
+        UPDATE r_patbat.geo_patbat_ssite
+        SET supsol_tot_bati = (
+            SELECT ROUND(SUM(ST_Area(ST_Intersection(b.geom, ss.geom)))::numeric) -- On sélectionne la somme arrondie des aires d'intersection entre les bâtiments et le sous-site passé en paramètre
+            FROM r_patbat.geo_patbat_bati b
+            JOIN r_patbat.an_patbat_entite e ON b.id_entite = e.id_entite
+            JOIN r_patbat.geo_patbat_ssite ss ON ST_Intersects(b.geom, ss.geom) -- Jointure spatiale entre la table de bâtiments et sous-site 
+            WHERE ss.id_entite = p_id_ssite
+            AND e.dbstatut = '10' -- que les bâtiments actifs
+        )
+        WHERE id_entite = p_id_ssite;
+END;
+$$ LANGUAGE plpgsql;
