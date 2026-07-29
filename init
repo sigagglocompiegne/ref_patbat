@@ -3,61 +3,72 @@ drop schema if exists r_patbat cascade;
 create schema r_patbat;
 
 create table r_patbat.lt_patbat_etat(
-	code varchar primary key,
-	valeur varchar(100) 
+	code varchar(2) primary key,
+	valeur varchar(100) NOT NULL
 );
 comment on table r_patbat.lt_patbat_etat is 'Table de valeur des etat des bâtiments';
 comment on column r_patbat.lt_patbat_etat.code is 'Code de l''etat des bâtiments';
 comment on column r_patbat.lt_patbat_etat.valeur is 'Valeur de l''etat des bâtiments';
 
-insert into r_patbat.lt_patbat_etat values ('TST','test');
-insert into r_patbat.lt_patbat_etat values ('TST2','test2');
+INSERT INTO r_patbat.lt_patbat_etat (code, valeur) VALUES 
+('10', 'En service - Bon état'),
+('11', 'En service - Dégradé / Vétuste'),
+('20', 'En travaux / Réhabilitation'),
+('30', 'Fermé / Désaffecté'),
+('40', 'En projet / En construction');
 
 create table r_patbat.lt_patbat_categorie(
-	code varchar primary key,
-	valeur varchar(100)
+	code varchar(2) primary key,
+	valeur varchar(100) NOT NULL
 );
 comment on table r_patbat.lt_patbat_categorie is 'Table de valeur des categories d''entites';
 comment on column r_patbat.lt_patbat_categorie.code is 'Code de la categorie';
 comment on column r_patbat.lt_patbat_categorie.valeur is 'Valeur de la catégorie';
 
-insert into r_patbat.lt_patbat_categorie values ('TST','test');
-insert into r_patbat.lt_patbat_categorie values ('TST2','test2');
+INSERT INTO r_patbat.lt_patbat_categorie (code, valeur) VALUES 
+('10', 'Administratif et Institutionnel'),
+('20', 'Enseignement et Petite enfance'),
+('30', 'Sportif'),
+('40', 'Culturel et Patrimoine'),
+('50', 'Technique et Logistique'),
+('60', 'Social et Santé'),
+('70', 'Développement Économique'),
+('80', 'Logement et Hébergement');
 
 CREATE TABLE r_patbat.lt_patbat_niveau(
-	code serial PRIMARY KEY,
-	valeur varchar(20) UNIQUE 
+	code varchar(2) PRIMARY KEY,
+	valeur varchar(20) UNIQUE NOT NULL 
 );
 COMMENT ON TABLE r_patbat.lt_patbat_niveau IS 'Table de valeur des niveaux d''entités(site,bati...)';
 COMMENT ON COLUMN r_patbat.lt_patbat_niveau.code IS 'Code du niveau d''entité';
 COMMENT ON COLUMN r_patbat.lt_patbat_niveau.valeur IS 'Valeur du niveau d''entité';
 
-INSERT INTO r_patbat.lt_patbat_niveau(valeur) VALUES ('Site');
-INSERT INTO r_patbat.lt_patbat_niveau(valeur) VALUES ('Sous-Site');
-INSERT INTO r_patbat.lt_patbat_niveau(valeur) VALUES ('Bâtiment');
-INSERT INTO r_patbat.lt_patbat_niveau(valeur) VALUES ('Unité');
-INSERT INTO r_patbat.lt_patbat_niveau(valeur) VALUES ('Local');
+INSERT INTO r_patbat.lt_patbat_niveau(code,valeur) VALUES ('10','Site');
+INSERT INTO r_patbat.lt_patbat_niveau(code,valeur) VALUES ('20','Sous-Site');
+INSERT INTO r_patbat.lt_patbat_niveau(code,valeur) VALUES ('30','Bâtiment');
+INSERT INTO r_patbat.lt_patbat_niveau(code,valeur) VALUES ('40','Unité');
+INSERT INTO r_patbat.lt_patbat_niveau(code,valeur) VALUES ('50','Local');
 
 create table r_patbat.an_patbat_entite( -- sous-categorie, contacts, orga_roles, pièces jointes, adresses en table de relations
 	id_entite serial primary key,
 	niveau varchar(20), -- site, UF, | table de valeur 
 	ref_code varchar(50),
-	nom_usage varchar(100),
+	nom_usage varchar(100) NOT NULL,
 	nom_officiel varchar(100),
-	categorie varchar(50), --talbe de valeur
+	categorie varchar(50) NOT NULL, --talbe de valeur
 	type_etablissement VARCHAR(50), -- Contiendra 'ERP','ERT' ou 'ERP;ERT'
-    parcelles VARCHAR,           -- Contiendra les IDs des parcelles, ex: '000AB01';'000AB02'
-	insee varchar(10), -- lien r_osm.geo_vm_osm_commune_arc
-	commune varchar(50), -- lien r_osm.geo_vm_osm_commune_arc
-	observ varchar(200),
+    parcelles text,           -- Contiendra les IDs des parcelles, ex: '000AB01';'000AB02'
+	insee varchar(5), -- lien r_osm.geo_vm_osm_commune_arc
+	commune varchar(80), -- lien r_osm.geo_vm_osm_commune_arc
+	observ text,
 	op_sai varchar(50),
 	op_maj varchar(50),
 	dbinsert timestamp with time zone,
 	dbupdate timestamp with time zone,
 	dbstatut VARCHAR(2) NOT NULL DEFAULT '10' CHECK (dbstatut IN ('10', '11')),
 	
-	constraint an_entite_categorie_fk foreign key(categorie) references r_patbat.lt_patbat_categorie(code),
-	CONSTRAINT an_entite_niveau_fk FOREIGN key(niveau) REFERENCES r_patbat.lt_patbat_niveau(valeur)
+	constraint an_entite_categorie_fkey foreign key(categorie) references r_patbat.lt_patbat_categorie(code),
+	CONSTRAINT an_entite_niveau_fkey FOREIGN key(niveau) REFERENCES r_patbat.lt_patbat_niveau(valeur)
 );
 comment on table r_patbat.an_patbat_entite is 'Classe attributaire regroupant les informations de toutes les entités du référentiel patrimoine bâtiment';
 comment on column r_patbat.an_patbat_entite.id_entite is 'Identifiant unique de l''entité ';
@@ -79,12 +90,13 @@ COMMENT ON COLUMN r_patbat.an_patbat_entite.dbstatut IS 'Statut de l''entité, g
 
 create table r_patbat.geo_patbat_site(
 	id_entite int4 primary key,
-	supsite int4,
+	supsite int4 NOT NULL,
 	supsol_tot_bati int2,
 	supdvp_tot_bati int2,
+	nb_bati int2 DEFAULT 0,
 	geom geometry(MultiPolygon, 2154),
 	
-	constraint geo_site_entite_fk foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite)
+	constraint geo_site_entite_fkey foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite)
 );
 comment on table r_patbat.geo_patbat_site is 'Classe géographique regroupant les informations de toutes les entités étant des sites';
 comment on column r_patbat.geo_patbat_site.id_entite is 'Identifiant de l''entité';
@@ -95,34 +107,35 @@ comment on column r_patbat.geo_patbat_site.supdvp_tot_bati is 'Calculé du total
 
 create table r_patbat.geo_patbat_ssite(
 	id_entite int4 primary key,
-	id_site int4,
-	supsol int2,
+	id_site int4 NOT NULL,
+	supsite int2 NOT NULL,
 	supsol_tot_bati int2,	
 	geom geometry(MultiPolygon, 2154),
 	
-	constraint geo_patbat_ssite_entite_fk foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite),
-	constraint geo_patbat_ssite_site_fk foreign key (id_site) references r_patbat.geo_patbat_site(id_entite)
+	constraint geo_patbat_ssite_entite_fkey foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite),
+	constraint geo_patbat_ssite_site_fkey foreign key (id_site) references r_patbat.geo_patbat_site(id_entite)
 );
 comment on table r_patbat.geo_patbat_ssite is 'Classe géographique regroupant les informations de toutes les entités étant des sous-sites';
 comment on column r_patbat.geo_patbat_ssite.id_entite is 'Identifiant de l''entité';
 comment on column r_patbat.geo_patbat_ssite.id_site is 'Identifiant du site dans lequel est compris le sous-site';
 comment on column r_patbat.geo_patbat_ssite.geom is 'Géométrie du sous-site';
-comment on column r_patbat.geo_patbat_ssite.supsol is 'Superficie au sol du sous-site, champ calculé auto à l''insert ';
+comment on column r_patbat.geo_patbat_ssite.supsite is 'Superficie du sous-site, champ calculé auto à l''insert ';
 comment on column r_patbat.geo_patbat_ssite.supsol_tot_bati is 'Calculé du total de la superficie au sol des bâtiments compris dans le sous-site';
 
 
 create table r_patbat.geo_patbat_bati(
 	id_entite int4 primary key,
-	id_site int4,
-	etat varchar(50), --table de valeurs 
-	supsol int2,
+	id_site int4 NOT NULL,
+	etat varchar(2) NOT NULL, --table de valeurs 
+	supsol int2 NOT NULL,
 	supdvp int2,
 	nb_etage int2,	
+	nb_uf int2 DEFAULT 0,
 	geom geometry(MultiPolygon, 2154),	
 	
-	constraint geo_bati_entite_fk foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite),
-	constraint geo_bati_site_fk foreign key (id_site) references r_patbat.geo_patbat_site(id_entite),
-	constraint geo_bati_etat_fk foreign key (etat) references r_patbat.lt_patbat_etat(code)
+	constraint geo_bati_entite_fkey foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite),
+	constraint geo_bati_site_fkey foreign key (id_site) references r_patbat.geo_patbat_site(id_entite),
+	constraint geo_bati_etat_fkey foreign key (etat) references r_patbat.lt_patbat_etat(code)
 );
 comment on table r_patbat.geo_patbat_bati is 'Classe géographique regroupant les informations de toutes les entités étant des bâtiments';
 comment on column r_patbat.geo_patbat_bati.id_entite is 'Identifiant de l''entité';
@@ -135,11 +148,12 @@ comment on column r_patbat.geo_patbat_bati.nb_etage is 'Nombre d''étage du bât
 
 create table r_patbat.an_patbat_unite_fonc(
 	id_entite int4 primary key,	
-	id_bati int4,
+	id_bati int4 NOT NULL,
 	supdvp int2,
+	nb_local int2 DEFAULT 0,
 	
-	constraint an_unite_fonc_entite_fk foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite),
-	CONSTRAINT an_unite_fonc_id_bati_fk FOREIGN KEY (id_bati) REFERENCES r_patbat.an_patbat_entite(id_entite)
+	constraint an_unite_fonc_entite_fkey foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite),
+	CONSTRAINT an_unite_fonc_id_bati_fkey FOREIGN KEY (id_bati) REFERENCES r_patbat.an_patbat_entite(id_entite)
 );
 comment on table r_patbat.an_patbat_unite_fonc is 'Classe attributaire regroupant les informations de toutes les entités étant des unités fonctionnelles';
 comment on column r_patbat.an_patbat_unite_fonc.id_entite is 'Identifiant de l''entité';
@@ -149,11 +163,11 @@ comment on column r_patbat.an_patbat_unite_fonc.supdvp is 'Superficie développ�
 
 create table r_patbat.an_patbat_local(
 	id_entite int4 primary key,
-	id_uf int4,
+	id_uf int4 NOT NULL,
 	supdvp int2, 				
 	
-	constraint an_local_entite_fk foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite),
-	CONSTRAINT an_local_id_uf_fk FOREIGN KEY (id_uf) REFERENCES r_patbat.an_patbat_unite_fonc(id_entite)
+	constraint an_local_entite_fkey foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite),
+	CONSTRAINT an_local_id_uf_fkey FOREIGN KEY (id_uf) REFERENCES r_patbat.an_patbat_unite_fonc(id_entite)
 );
 comment on table r_patbat.an_patbat_local is 'Classe attributaire regroupant les informations de tout les locaux';
 comment on column r_patbat.an_patbat_local.id_entite is 'Identifiant de l''entité';
@@ -163,15 +177,22 @@ comment on column r_patbat.an_patbat_local.supdvp is 'Superficie développée du
 
 -- Table des fonctions de contacts (Liste de valeurs)
 CREATE TABLE r_patbat.lt_patbat_fonction (
-    code VARCHAR(10) PRIMARY KEY,
+    code VARCHAR(2) PRIMARY KEY,
     valeur VARCHAR(100) NOT NULL
 );
 comment on table r_patbat.lt_patbat_fonction is 'Classe de liste de valeurs des focntions des contacts';
 comment on column r_patbat.lt_patbat_fonction.code is 'Code de la fonction du contact';
 comment on column r_patbat.lt_patbat_fonction.valeur is 'Valeur de la fonction du contact';
 
-INSERT INTO r_patbat.lt_patbat_fonction values('TST','test');
-INSERT INTO r_patbat.lt_patbat_fonction values('TST2','test2');
+INSERT INTO r_patbat.lt_patbat_fonction (code, valeur) VALUES 
+('10', 'Direction / Responsable d''établissement'),
+('20', 'Référent administratif / Élu'),
+('30', 'Gardien / Concierge'),
+('40', 'Référent technique / Maintenance'),
+('50', 'Référent sécurité / SSI (Sécurité Incendie)'),
+('60', 'Prestataire / Intervenant externe'),
+('70', 'Locataire / Occupant / Association résidente'),
+('80', 'Propriétaire / Bailleur');
 
 -- Table des contacts
 CREATE TABLE r_patbat.an_patbat_contact (
@@ -204,16 +225,17 @@ COMMENT ON COLUMN r_patbat.an_patbat_contact.dbstatut IS 'Statut du contact, ges
 
 -- Table de relation entre les contacts et les fonctions de contacts 
 create table r_patbat.lk_patbat_contact (
-    id_entite INT4,
-    id_contact INT2,
-    code_fonction VARCHAR(50), --table de valeur 
+	gid serial,
+    id_entite INT4 NOT NULL,
+    id_contact INT2 NOT NULL,
+    code_fonction VARCHAR(2) NOT NULL, --table de valeur 
     
-    constraint lk_contact primary key (id_entite, id_contact, code_fonction),
-    constraint lk_contact_id_bat_fk foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite), 
-    constraint lk_contact_id_cont_fk foreign key (id_contact) references r_patbat.an_patbat_contact(id_contact), 
-    constraint lk_contact_fonction_fk foreign key (code_fonction) references r_patbat.lt_patbat_fonction(code)
+    constraint lk_contact_id_bat_fkey foreign key (id_entite) references r_patbat.an_patbat_entite(id_entite), 
+    constraint lk_contact_id_cont_fkey foreign key (id_contact) references r_patbat.an_patbat_contact(id_contact), 
+    constraint lk_contact_fonction_fkey foreign key (code_fonction) references r_patbat.lt_patbat_fonction(code)
 );
 comment on table r_patbat.lk_patbat_contact is 'Classe de relation entre les entités, fonction des contacts, et informations des contacts';
+comment on column r_patbat.lk_patbat_contact.gid is 'Identifiant unique du lien entre contact, fonction et entité';
 comment on column r_patbat.lk_patbat_contact.id_entite is 'Identifiant unique de l''entité';
 comment on column r_patbat.lk_patbat_contact.id_contact is 'Identifiant du contact';
 comment on column r_patbat.lk_patbat_contact.code_fonction is 'Fonction du contact';
@@ -222,20 +244,26 @@ INSERT INTO r_patbat.an_patbat_contact(denomination,tel,mobile,email,organisme) 
 INSERT INTO r_patbat.an_patbat_contact(denomination,tel,mobile,email,organisme) values( 'Toto Marie','0606060606','0606060606','mariemail','test');
 
 create table r_patbat.lt_patbat_role(
-	code varchar(50) primary key,
+	code varchar(2) primary key,
 	valeur varchar(50) not null
 );
 comment on table r_patbat.lt_patbat_role is 'Table de valeur des rôles des organisations';
 comment on column r_patbat.lt_patbat_role.code is 'Code du rôle';
 comment on column r_patbat.lt_patbat_role.valeur is 'Valeur du rôle';
 
-INSERT INTO r_patbat.lt_patbat_role VALUES ('role1','role numéro 1');
-INSERT INTO r_patbat.lt_patbat_role VALUES ('role2','role numéro 2');
+INSERT INTO r_patbat.lt_patbat_role (code, valeur) VALUES 
+('10', 'Collectivité et EPCI'),          -- Communes, Agglo, Département, Région
+('20', 'Institution de l''État'),         -- Éducation Nationale, Préfecture, Gendarmerie
+('30', 'Bailleur et gestionnaire'),      -- Bailleurs sociaux, foncières
+('40', 'Aménageur (SPL / SEM)'),         -- Sociétés Publiques Locales
+('50', 'Partenaire environnemental'),    -- ONF, Parcs naturels
+('60', 'Partenaire institutionnel'),     -- SDIS (Pompiers), CAF
+('70', 'Concessionnaire réseaux');       -- Enedis, GRDF, délégataires eau
 
 create table r_patbat.an_patbat_orga(
 	id_orga serial primary key,
 	nom varchar(100),
-	observ varchar(200),
+	observ text,
 	op_sai varchar(50),
 	op_maj varchar(50),
 	dbinsert timestamp with time zone,
@@ -251,86 +279,111 @@ COMMENT ON COLUMN r_patbat.an_patbat_orga.dbinsert IS 'Date d''insertion de l''o
 COMMENT ON COLUMN r_patbat.an_patbat_orga.dbupdate IS 'Date de mise à jour de l''organisation';
 COMMENT ON COLUMN r_patbat.an_patbat_orga.dbstatut IS 'Statut de l''organisation, gestion corbeille';
 
-INSERT INTO r_patbat.an_patbat_orga(nom) VALUES ('nomorga1');
-INSERT INTO r_patbat.an_patbat_orga(nom) VALUES  ('nomorga2');
+INSERT INTO r_patbat.an_patbat_orga (nom, observ) VALUES
+
+('Agglomération de la Région de Compiègne (ARC)', 'EPCI de rattachement'),
+('Direction des Services Départementaux de l''Éducation Nationale (DSDEN)', 'Gestion des affectations scolaires'),
+('Office National des Forêts (ONF)', 'Gestion des forêts domaniales et bordures'),
+('Société Publique Locale (SPL)', 'Aménagement et projets d''urbanisme'),
+('OPAC de l''Oise',  'Bailleur social public'),
+('Clésence', 'Bailleur social privé (Action Logement)'),
+('Service Départemental d''Incendie et de Secours (SDIS)', 'Gestion des normes ERP et interventions'),
+
+-- Les 77 communes du territoire
+('Commune de SAINT LEGER AUX BOIS', NULL),('Commune de COULOISY', NULL),('Commune de COURTIEUX', NULL),('Commune de CROUTOY', NULL),('Commune de CUISE LA MOTTE', NULL),('Commune de BAILLY', NULL),('Commune de CAMBRONNE LES RIBECOURT', NULL),
+('Commune de CHEVINCOURT', NULL),('Commune de CHIRY OURSCAMP', NULL),('Commune de LONGUEIL ANNEL', NULL),('Commune de MACHEMONT', NULL),('Commune de MAREST SUR MATZ', NULL),('Commune de MELICOCQ', NULL),('Commune de MONTMACQ', NULL),
+('Commune de PIMPREZ', NULL),('Commune de LE PLESSIS BRION', NULL),('Commune de RIBECOURT DRESLINCOURT', NULL),('Commune de THOUROTTE', NULL),('Commune de TRACY LE VAL', NULL),('Commune de VANDELICOURT', NULL),('Commune de ATTICHY', NULL),
+('Commune de AUTRECHES', NULL),('Commune de BERNEUIL SUR AISNE', NULL),('Commune de BITRY', NULL),('Commune de CHELLES', NULL),('Commune de HAUTEFONTAINE', NULL),('Commune de JAULZY', NULL),('Commune de MOULIN SOUS TOUVENT', NULL),
+('Commune de NAMPCEL', NULL),('Commune de PIERREFONDS', NULL),('Commune de AVRIGNY', NULL),('Commune de RETHONDES', NULL),('Commune de ST JEAN AUX BOIS', NULL),('Commune de ST CREPIN AUX BOIS', NULL),('Commune de ST ETIENNE ROILAYE', NULL),
+('Commune de ST PIERRE LES BITRY', NULL),('Commune de TRACY LE MONT', NULL),('Commune de TROSLY BREUIL', NULL),('Commune de ARSY', NULL),('Commune de BAILLEUL LE SOC', NULL),('Commune de BLINCOURT', NULL),('Commune de CANLY', NULL),
+('Commune de CHEVRIERES', NULL),('Commune de CHOISY LA VICTOIRE', NULL),('Commune de EPINEUSE', NULL),('Commune de ESTREES ST DENIS', NULL),('Commune de LE FAYEL', NULL),('Commune de FRANCIERES', NULL),('Commune de GRANDFRESNOY', NULL),
+('Commune de HEMEVILLERS', NULL),('Commune de HOUDANCOURT', NULL),('Commune de LONGUEIL STE MARIE', NULL),('Commune de MONTMARTIN', NULL),('Commune de MOYVILLERS', NULL),('Commune de REMY', NULL),('Commune de RIVECOURT', NULL),
+('Commune de ARMANCOURT', NULL),('Commune de BETHISY ST MARTIN', NULL),('Commune de BETHISY ST PIERRE', NULL),('Commune de BIENVILLE', NULL),('Commune de CHOISY AU BAC', NULL),('Commune de CLAIROIX', NULL),('Commune de COMPIEGNE', NULL),
+('Commune de JANVILLE', NULL),('Commune de JAUX', NULL),('Commune de JONQUIERES', NULL),('Commune de LACHELLE', NULL),('Commune de LACROIX ST OUEN', NULL),('Commune de MARGNY LES COMPIEGNE', NULL),('Commune de LE MEUX', NULL),
+('Commune de NERY', NULL),('Commune de SAINTINES', NULL),('Commune de ST SAUVEUR', NULL),('Commune de ST VAAST DE LONGMONT', NULL),('Commune de VENETTE', NULL),('Commune de VERBERIE', NULL),('Commune de VIEUX MOULIN', NULL);
+
+-- communes, SPL, éducation nationale, bail, ONF, 
+
 
 create table r_patbat.lk_patbat_orga_role(
-	id_entite int4,
-	id_orga int2,
-	code_role varchar(20), -- table de valeur 
+	gid serial PRIMARY KEY,
+	id_entite int4 NOT NULL,
+	id_orga int2 NOT NULL,
+	code_role varchar(2) NOT NULL, -- table de valeur 
 	
-	constraint lk_orga_role_pk primary key (id_entite,id_orga,code_role),
-	constraint lk_orga_role_entite_fk foreign key(id_entite) references r_patbat.an_patbat_entite(id_entite),
-	constraint lk_orga_role_orga_fk foreign key(id_orga) references r_patbat.an_patbat_orga(id_orga),
-	constraint lk_orga_role_code_fk foreign key(code_role) references r_patbat.lt_patbat_role(code)
+
+	constraint lk_orga_role_entite_fkey foreign key(id_entite) references r_patbat.an_patbat_entite(id_entite),
+	constraint lk_orga_role_orga_fkey foreign key(id_orga) references r_patbat.an_patbat_orga(id_orga),
+	constraint lk_orga_role_code_fkey foreign key(code_role) references r_patbat.lt_patbat_role(code)
 );
 comment on table r_patbat.lk_patbat_orga_role is 'Classe de relation entre les organisations, les rôles qu''elles peuvent avoir et les entites';
+comment on column r_patbat.lk_patbat_orga_role.gid is 'Identifiant unique du lien entre l''entité , l''oraganisation et le rôle';
 comment on column r_patbat.lk_patbat_orga_role.id_entite is 'Identifiant de l''entité';
 comment on column r_patbat.lk_patbat_orga_role.id_orga is 'Identifiant de l''organisation';
 comment on column r_patbat.lk_patbat_orga_role.code_role is 'Code du rôle de l''organisation';
 
 create table r_patbat.lt_patbat_sous_cat(
-	code varchar(20) primary key,
-	valeur varchar(100)
+	code varchar(2) primary key,
+	valeur varchar(100) NOT NULL
 );
 comment on table r_patbat.lt_patbat_sous_cat is 'Table de valeur des sous-categories';
 comment on column r_patbat.lt_patbat_sous_cat.code is 'Code de la sous-categorie';
 comment on column r_patbat.lt_patbat_sous_cat.valeur is 'Valeur de la sous-catégorie';
 
-INSERT INTO r_patbat.lt_patbat_sous_cat values('sc1','sous-cate1');
-INSERT INTO r_patbat.lt_patbat_sous_cat values('sc2','sous-cate2');
+INSERT INTO r_patbat.lt_patbat_sous_cat (code, valeur) VALUES 
+('11', 'Hôtel de Ville / Siège administratif'),
+('12', 'Annexe administrative / Bureaux'),
+('13', 'Accueil du public / Guichet'),
+('14', 'Sécurité (Police municipale, Gendarmerie)'),
+('21', 'École Maternelle'),
+('22', 'École Élémentaire'),
+('23', 'Groupe Scolaire (Mixte)'),
+('24', 'Crèche / Halte-garderie'),
+('25', 'Périscolaire / Accueil de loisirs (ALSH)'),
+('26', 'Enseignement secondaire ou supérieur'),
+('31', 'Gymnase / Halle des sports / Complexe'),
+('32', 'Piscine / Centre aquatique'),
+('33', 'Stade / Vestiaires / Tribunes'),
+('34', 'City stade / Plateau sportif de proximité'),
+('35', 'Base nautique / Équipement spécifique'),
+('41', 'Médiathèque / Bibliothèque'),
+('42', 'Musée / Centre d''exposition'),
+('43', 'Salle des fêtes / Polyvalente'),
+('44', 'Théâtre / Salle de spectacle / Conservatoire'),
+('45', 'Édifice religieux (Église, chapelle)'),
+('46', 'Monument historique / Vestige remarquable'),
+('51', 'Centre Technique (CTM / CTI)'),
+('52', 'Ateliers / Magasin / Archives'),
+('53', 'Déchetterie / Station d''épuration'),
+('54', 'Chaufferie / Sous-station / Réseau de chaleur'),
+('55', 'Local technique spécialisé'),
+('61', 'CCAS / CIAS / Pôle solidarité'),
+('62', 'Maison de santé / Centre médical / Dispensaire'),
+('63', 'Foyer d''hébergement / Résidence autonomie'),
+('64', 'Épicerie sociale et solidaire'),
+('71', 'Pépinière / Hôtel d''entreprises'),
+('72', 'Tiers-lieu / Espace de coworking'),
+('73', 'Local commercial ou artisanal loué'),
+('74', 'Bâtiment à vocation agricole'),
+('81', 'Logement de fonction'),
+('82', 'Logement d''urgence'),
+('83', 'Bâtiment d''habitation classique');
 
 create table r_patbat.lk_patbat_sous_cat(
-	id_entite int4,
-	code_sous_cat varchar(20),
+	gid serial PRIMARY KEY,
+	id_entite int4 NOT NULL,
+	code_sous_cat varchar(2) NOT NULL,
 	
-	constraint lk_sous_cat_fk foreign key(id_entite) references r_patbat.an_patbat_entite(id_entite)
+	constraint lk_sous_cat_fkey foreign key(id_entite) references r_patbat.an_patbat_entite(id_entite)
 );
 comment on table r_patbat.lk_patbat_sous_cat is 'Classe de relation entre les sous-categories et les entites';
+comment on column r_patbat.lk_patbat_sous_cat.gid is 'Identifiant unique du lien entre entité et sous catégorie';
 comment on column r_patbat.lk_patbat_sous_cat.id_entite is 'Identifiant de l''entite';
 comment on column r_patbat.lk_patbat_sous_cat.code_sous_cat is 'Code de la sous-categorie';
 
-/*
-create table r_patbat.lt_patbat_type_doc(	
-	code varchar primary key,
-	valeur varchar not null
-);
-comment on table r_patbat.lt_patbat_type_doc is 'Table de valeur des types de documents';
-comment on column r_patbat.lt_patbat_type_doc.code is 'Code du type de document';
-comment on column r_patbat.lt_patbat_type_doc.valeur is 'Valeur du type de document';
-
-create table r_patbat.an_patbat_doc(
-	id_doc serial primary key,
-	nom_doc varchar not null, 
-	pointeur varchar not null, -- lien URL / chemin d'accès 
-	date_doc timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	type_doc varchar, --liste de valeur
-	
-	constraint fk_an_doc_type foreign key(type_doc) references r_patbat.lt_patbat_type_doc(code)
-);
-comment on table r_patbat.an_patbat_doc is 'Classe attributaire stockant les informations des documents';
-comment on column r_patbat.an_patbat_doc.id_doc is 'Identifiant unique du document';
-comment on column r_patbat.an_patbat_doc.nom_doc is 'Nom du document';
-comment on column r_patbat.an_patbat_doc.pointeur is 'Chemin pour acceder au document (URL,chemin d''acces,....)';
-comment on column r_patbat.an_patbat_doc.date_doc is 'Date d''import du document';
-comment on column r_patbat.an_patbat_doc.type_doc is 'Type du document';
-
-create table r_patbat.lk_patbat_doc(
-	id_entite int,
-	id_doc int,
-	
-	constraint pk_lk_doc primary key(id_entite,id_doc),
-	constraint fk_lk_entite foreign key(id_entite) references r_patbat.an_patbat_entite(id_entite),
-	constraint fk_lk_doc foreign key(id_doc) references r_patbat.an_patbat_doc(id_doc)
-);
-comment on table r_patbat.lk_patbat_doc is 'Classe de relation entre les entites et les documents';
-comment on column r_patbat.lk_patbat_doc.id_entite is 'Identifiant de l''entite';
-comment on column r_patbat.lk_patbat_doc.id_doc is 'identifiant du document';
-*/
-
 CREATE TABLE r_patbat.lt_patbat_type_eta( -- Table utilisée dans QGIS pour faire une liste de valeurs pour les types d'établissements des entités
-	code varchar(20) PRIMARY KEY ,
-	valeur varchar(200) 
+	code varchar(3) PRIMARY KEY ,
+	valeur varchar(200) NOT NULL 
 );
 
 COMMENT ON TABLE r_patbat.lt_patbat_type_eta IS 'Table de valeurs des différents types d''établissements';
@@ -341,7 +394,7 @@ INSERT INTO r_patbat.lt_patbat_type_eta values('ERP','établissements recevant d
 INSERT INTO r_patbat.lt_patbat_type_eta values('ERT','établissements où des salariés travaillent, mais où le public n''a pas accès de manière libre et organisée');
 
 CREATE TABLE r_patbat.lt_patbat_fluide (
-    code VARCHAR(10) PRIMARY KEY,
+    code VARCHAR(2) PRIMARY KEY,
     valeur VARCHAR(50) NOT NULL
 );
 
@@ -350,25 +403,25 @@ COMMENT ON COLUMN r_patbat.lt_patbat_fluide.code IS 'Code du type de fluide';
 COMMENT ON COLUMN r_patbat.lt_patbat_fluide.valeur IS 'Valeur du type de fluide';
 
 INSERT INTO r_patbat.lt_patbat_fluide (code, valeur) VALUES 
-('ELEC', 'Électricité'),
-('GAZ', 'Gaz naturel'),
-('EAU', 'Eau potable'),
-('CHAUF', 'Réseau de chaleur');
+('10', 'Électricité'),
+('20', 'Gaz naturel'),
+('30', 'Eau potable'),
+('40', 'Réseau de chaleur');
 
 CREATE TABLE r_patbat.geo_patbat_pdl(
 	id_pdl serial PRIMARY KEY ,
 	code_ref varchar(100),
-	type_fluide varchar(10),
+	type_fluide varchar(2),
 	puissance int2,
 	type_compteur varchar(20) DEFAULT 'Compteur principal' CHECK (type_compteur IN ('Compteur principal', 'Sous-compteur')),
-	code_ref_compteur_parent int2, -- code ref compteur principal ( a changer )
+	compteur_parent int2, -- code ref compteur principal 
 	geom Geometry(Point,2154),
 
-	CONSTRAINT geo_patbat_pdl_fluide_fk FOREIGN KEY(type_fluide) REFERENCES r_patbat.lt_patbat_fluide(code),
-	CONSTRAINT pdl_parent_fk FOREIGN KEY (code_ref_compteur_parent) REFERENCES r_patbat.geo_patbat_pdl(id_pdl) ON DELETE SET NULL,    
+	CONSTRAINT geo_patbat_pdl_fluide_fkey FOREIGN KEY(type_fluide) REFERENCES r_patbat.lt_patbat_fluide(code),
+	CONSTRAINT pdl_parent_fkey FOREIGN KEY (compteur_parent) REFERENCES r_patbat.geo_patbat_pdl(id_pdl) ON DELETE SET NULL,    
     -- Empêcher un compteur principal d'avoir un parent
     CONSTRAINT chk_logique_sous_compteur CHECK (
-        (type_compteur = 'Compteur principal' AND code_ref_compteur_parent IS NULL) OR 
+        (type_compteur = 'Compteur principal' AND compteur_parent IS NULL) OR 
         (type_compteur = 'Sous-compteur')
 ));
 
@@ -379,60 +432,91 @@ COMMENT ON COLUMN r_patbat.geo_patbat_pdl.geom IS 'Géométrie du PDL (Point)';
 COMMENT ON COLUMN r_patbat.geo_patbat_pdl.type_fluide IS 'Code du type de fluide du PDL';
 COMMENT ON COLUMN r_patbat.geo_patbat_pdl.puissance IS 'Puissance du PDL';
 COMMENT ON COLUMN r_patbat.geo_patbat_pdl.type_compteur IS 'Type du compteur, compteur principal ou sous-compteur associé à un compteur principal';
-COMMENT ON COLUMN r_patbat.geo_patbat_pdl.code_ref_compteur_parent IS 'Identifiant du compteur parent';
+COMMENT ON COLUMN r_patbat.geo_patbat_pdl.compteur_parent IS 'Code de référence du compteur parent';
 
 CREATE TABLE r_patbat.lk_patbat_pdl(
-	id_entite int4,
-	id_pdl int2,
-	CONSTRAINT lk_pdl_pk PRIMARY KEY (id_entite,id_pdl)
+	gid serial PRIMARY KEY,
+	id_entite int4 NOT NULL,
+	id_pdl int2 NOT NULL
 );
 
 COMMENT ON TABLE r_patbat.lk_patbat_pdl IS 'Table de relation entre une entité et un PDL';
 COMMENT ON COLUMN r_patbat.lk_patbat_pdl.id_entite IS 'Identifiant de l''entité';
 COMMENT ON COLUMN r_patbat.lk_patbat_pdl.id_pdl IS 'Identifiant du PDL';
 
+
+CREATE TABLE r_patbat.lt_type_media (
+code varchar(2) PRIMARY KEY,
+valeur varchar(20) NOT NULL 
+);
+
+INSERT INTO r_patbat.lt_type_media (code, valeur) VALUES
+('10', 'Photographie'),
+('20', 'Plan / Croquis'),
+('30', 'Vidéo'),
+('40', 'Modèle 3D / BIM'),
+('50', 'Notice technique'),
+('60', 'Document légal'),
+('70', 'Devis / Facture'),
+('80', 'Rapport d''expertise'),
+('90', 'Archive historique'),
+('99', 'Autre');
+
 CREATE TABLE r_patbat.an_patbat_media (
 	gid serial NOT NULL, -- identifiant unique (option) 
-	id character varying(10), -- Identifiant de la table liée 
+	id int4, -- Identifiant de la table liée 
+	type_media varchar(2), 
 	media text, -- Champ Média de GEO 
 	miniature bytea, -- Champ miniature de GEO 
 	n_fichier text, -- Nom du fichier 
 	t_fichier text, -- Type de média dans GEO 
-	observ varchar(200),
+	observ text,
 	op_sai varchar(50),
-	op_maj varchar(50),
-	dbinsert timestamp with time zone,
-	dbupdate timestamp with time zone
+	dbinsert timestamp with time ZONE,
+	
+	CONSTRAINT type_media_fkey FOREIGN KEY (type_media) REFERENCES r_patbat.lt_type_media (code)
 	);
 COMMENT ON TABLE r_patbat.an_patbat_media IS 'Structure de table modèle pour utiliser le module MEDIA dans GEO (saisie de docs par les utilisateurs)'; 
 COMMENT ON COLUMN r_patbat.an_patbat_media.gid IS 'Identifiant interne'; 
 COMMENT ON COLUMN r_patbat.an_patbat_media.id IS 'Identifiant de la table liée'; 
 COMMENT ON COLUMN r_patbat.an_patbat_media.media IS 'Champ Média de GEO'; 
+COMMENT ON COLUMN r_patbat.an_patbat_media.type_media IS 'Code du type de média'; 
 COMMENT ON COLUMN r_patbat.an_patbat_media.miniature IS 'Champ miniature de GEO';
 COMMENT ON COLUMN r_patbat.an_patbat_media.n_fichier IS 'Nom du fichier'; 
 COMMENT ON COLUMN r_patbat.an_patbat_media.t_fichier IS 'Type de média dans GEO'; 
 COMMENT ON COLUMN r_patbat.an_patbat_media.observ IS 'Commentaires divers';
-COMMENT ON COLUMN r_patbat.an_patbat_media.op_sai IS 'Login de la personne ayant saisi l''organisation';
-COMMENT ON COLUMN r_patbat.an_patbat_media.op_maj IS 'Login de la personne ayant modifié l''organisation';
-COMMENT ON COLUMN r_patbat.an_patbat_media.dbinsert IS 'Date d''insertion de l''organisation';
-COMMENT ON COLUMN r_patbat.an_patbat_media.dbupdate IS 'Date de mise à jour de l''organisation';
+COMMENT ON COLUMN r_patbat.an_patbat_media.op_sai IS 'Login de la personne ayant saisi le média';
+COMMENT ON COLUMN r_patbat.an_patbat_media.dbinsert IS 'Date d''insertion du média';
 
 
 CREATE TABLE r_patbat.lk_patbat_adresse (
-    id_entite INT,
-    id_adresse INT, -- L'identifiant de l'adresse id_adresse
+	gid serial PRIMARY KEY,
+    id_entite INT4 NOT NULL,
+    id_adresse INT4 NOT NULL, -- L'identifiant de l'adresse id_adresse
     
-    CONSTRAINT pk_lk_patbat_adresse PRIMARY KEY (id_entite, id_adresse),
     
     CONSTRAINT fk_lk_adresse_entite FOREIGN KEY (id_entite) 
         REFERENCES r_patbat.an_patbat_entite(id_entite) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE r_patbat.lk_patbat_adresse IS 'Table de liaison  entre le patrimoine bati et le référentiel adresse (RVA)';
+COMMENT ON COLUMN r_patbat.lk_patbat_adresse.gid IS 'Identifiant unique du lien entre l''entité et l''adresse';
+COMMENT ON COLUMN r_patbat.lk_patbat_adresse.id_entite IS 'Identifiant de l''entité';
 COMMENT ON COLUMN r_patbat.lk_patbat_adresse.id_adresse IS 'Clé d''interopérabilité vers le référentiel RVA';
+
+-----------------------------------------------------------------------------------------
+--                                      SEQUENCES                                      --
+-----------------------------------------------------------------------------------------
+
+CREATE SEQUENCE r_patbat.patbat_site_seq START 1; -- Séquence pour calculer le ref_code des sites
+CREATE SEQUENCE r_patbat.patbat_ssite_seq START 1; -- Séquence pour calculer le ref_code des sous-sites
+
+COMMENT ON SEQUENCE r_patbat.patbat_site_seq IS 'Séquence de comptage de sites, utilisée pour le code de référence des sites';
+COMMENT ON SEQUENCE r_patbat.patbat_ssite_seq IS 'Séquence de comptage de sous-sites, utilisée pour le code de référence des sous-sites';
+
 -----------------------------------------------------------------------------------------
 --																					   --
---								GESTION TABLES GÉOGRAPHIQUES						   --
+--								       VUES DE GESTION					               --
 -- 																					   --
 -----------------------------------------------------------------------------------------
 
@@ -479,10 +563,12 @@ CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_site()
 RETURNS TRIGGER AS $$
 DECLARE
     nouvel_id INT; --variable dans laquelle on va stocker l'id_entite qu'on crée
+	
+	v_code_ref_id INT; --variable dans laquelle on stocke l'id de site du code de référence
 BEGIN
 
 -----------------------------------------------------------------------------------------
---                                       TESTS                                         --
+--                                      CONTROLES DE SAISIE                            --
 -----------------------------------------------------------------------------------------
 
 	-- test de superposition avec un autre site
@@ -491,7 +577,8 @@ BEGIN
 				WHERE s.id_entite is distinct from NEW.id_entite  		
 				AND e.dbstatut IS DISTINCT FROM '11' 
 			    AND NEW.dbstatut IS DISTINCT FROM '11' 
-				AND (ST_Intersects(NEW.geom,s.geom) and not ST_Touches(NEW.geom,s.geom))) THEN 
+				AND (ST_Intersects(NEW.geom,s.geom) and not ST_Touches(NEW.geom,s.geom))
+				AND ST_Intersects(ST_Buffer(NEW.geom, -0.2), s.geom)) THEN -- Buffer négatif de 20cm
 		RAISE EXCEPTION '<span style="color:red;"><b>Le site se superpose à un autre site actif</b></span><br><br>';
 	END IF;
 
@@ -509,13 +596,18 @@ BEGIN
 --                                    OPERATIONS                                       --
 -----------------------------------------------------------------------------------------
 
+
 	-- si l'opération réalisée sur la vue est un INSERT
-    IF TG_OP = 'INSERT' THEN
+    IF TG_OP = 'INSERT' THEN	
+
+	-- calcul de l'id de site du code_ref 
+	v_code_ref_id := nextval('r_patbat.patbat_site_seq');
+
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite 
             niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut, op_sai, dbinsert
         )
         VALUES (
-            'Site',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP
+            'Site', 'S' || v_code_ref_id , NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
@@ -527,12 +619,6 @@ BEGIN
 
 	-- si l'opération réalisée sur la vue est un UPDATE
     ELSIF TG_OP = 'UPDATE' THEN
-
-		-- Transformation d'un UPDATE ou on désactiverai le bâtiment vers un DELETE 
-		IF NEW.dbstatut != old.dbstatut and new.dbstatut = '11' then
-			NEW.dbstatut := '10';
-			DELETE FROM r_patbat.geo_v_patbat_site WHERE id_entite = NEW.id_entite;
-		END IF;  
 
 		-- Si on change la géométrie du site, alors on teste si il existe un sous-site ou un bâtiment qui n'est plus compris dans le site dans lequel il était compris
 		IF NEW.geom != old.geom and new.dbstatut = '10' then 
@@ -559,12 +645,13 @@ BEGIN
 			type_etablissement = NEW.type_etablissement,
 			dbstatut = NEW.dbstatut, 
 			op_maj = NEW.op_maj, 
+			op_sai = NEW.op_sai,
 			dbupdate = CURRENT_TIMESTAMP
         WHERE id_entite = OLD.id_entite;
 
         UPDATE r_patbat.geo_patbat_site -- on update la table geo_site
         SET geom = NEW.geom,
-		supsol = ROUND(ST_Area(NEW.geom)::numeric)
+		supsite = ROUND(ST_Area(NEW.geom)::numeric)
         WHERE id_entite = OLD.id_entite;
 
         RETURN NEW;
@@ -617,7 +704,7 @@ create or replace view r_patbat.geo_v_patbat_ssite as
 	e.observ,
 	e.type_etablissement,
 	e.dbstatut,
-	ss.supsol,
+	ss.supsite,
 	e.op_sai,
 	e.op_maj,
 	e.dbinsert,
@@ -635,7 +722,7 @@ COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.categorie IS 'Catégorie principal
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.observ IS 'Commentaires divers sur le sous-site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.type_etablissement IS 'Types d''établissements du sous-site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.dbstatut IS 'Statut du sous-site (actif ou désactivé)';
-COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.supsol IS 'Superficie au sol du sous-site';
+COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.supsite IS 'Superficie au sol du sous-site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.op_sai IS 'Login de la personne ayant saisi le sous-site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.op_maj IS 'Login de la personne ayant modifié le sous-site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.dbinsert IS 'Date d''insertion du sous-site';
@@ -648,10 +735,12 @@ DECLARE
     nouvel_id INT; --variable dans laquelle on va stocker l'id_entite qu'on crée
 	v_id_site INT; -- l'id du site dans lequel est compris le sous-site
 	v_statut_site VARCHAR; --le statut du site dans lequel est compris le sous-site
+	v_nom_site varchar; -- le nom du site dans lequel est compris le sous-site
+	v_code_ref_id varchar; -- variable dans laquelle on stocke l'id du ssite utilisé dans le code de référence
 BEGIN
 
 -----------------------------------------------------------------------------------------
---                                       TESTS                                         --
+--                                       CONTROLES DE SAISIE                           --
 -----------------------------------------------------------------------------------------
 
 	SELECT s.id_entite, e.dbstatut INTO v_id_site, v_statut_site -- on stocke l'id et le staut du site actif dans lequel est compris le sous-site
@@ -679,22 +768,29 @@ BEGIN
 		RAISE EXCEPTION '<span style="color:red;"><b>Le sous-site se superpose avec un autre sous-site</b></span><br><br>';
 	END IF;  
 
+	IF NEW.nom_usage is null and TG_OP != 'DELETE' then 
+		RAISE EXCEPTION '<span style="color:red;"><b>Le sous-site doit au moins avoir un nom d''usage</b></span><br><br>';
+	end if;
+
 -----------------------------------------------------------------------------------------
 --                                    OPERATIONS                                       --
 -----------------------------------------------------------------------------------------
 
 	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
+
+		v_code_ref_id := nextval('r_patbat.patbat_ssite_seq');
+
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
             niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut, op_sai, dbinsert
         )
         VALUES (
-            'Sous-Site',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP
+            'Sous-Site','S.S' || v_code_ref_id, NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
 		-- On insère les données dans la table .geo_patbat_ssite, en utilisant le même id_entite et le v_id_site récupéré
-        INSERT INTO r_patbat.geo_patbat_ssite (id_entite, geom, id_site, supsol)
+        INSERT INTO r_patbat.geo_patbat_ssite (id_entite, geom, id_site, supsite)
         VALUES (nouvel_id, NEW.geom, v_id_site, ROUND(ST_Area(NEW.geom)::numeric) );
 
 		-- On lance la fonction de calcul du total de la superficie au sol des bâtiments compris dans le sous-site
@@ -718,7 +814,7 @@ BEGIN
 
         UPDATE r_patbat.geo_patbat_ssite -- on update la table .geo_patbat_ssite
         SET geom = NEW.geom,
-		supsol = ROUND(ST_Area(NEW.geom)::numeric)
+		supsite = ROUND(ST_Area(NEW.geom)::numeric)
         WHERE id_entite = OLD.id_entite;
 
 		-- On lance la fonction de calcul du total de la superficie au sol des bâtiments compris dans le sous-site
@@ -807,14 +903,16 @@ DECLARE
 	v_id_site INT; -- l'id du site dans lequel est compris le bâtiment
 	v_statut_site VARCHAR; --le statut du site dans lequel est compris le bâtiment
 	v_nom_usage_site varchar; -- le nom d'usage du site dans lequel est compris le bâtiment 
+	v_code_ref_site varchar; -- code de référence du site dans lequel est compris le bâtiment
+	v_code_ref_id varchar; -- id du bati a utiliser dans le code_ref
 	r RECORD; -- variable de boucle 
 BEGIN
 
 -----------------------------------------------------------------------------------------
---                                       TESTS                                         --
+--                                       CONTROLES DE SAISIE                           --
 -----------------------------------------------------------------------------------------
 
-	SELECT s.id_entite, e.dbstatut, e.nom_usage INTO v_id_site, v_statut_site, v_nom_usage_site -- on stocke l'id, le nom d'usage et le statut du site actif dans lequel est compris le bâtiment
+	SELECT s.id_entite, e.dbstatut, e.nom_usage, e.ref_code INTO v_id_site, v_statut_site, v_nom_usage_site, v_code_ref_site -- on stocke l'id, le nom d'usage et le statut du site actif dans lequel est compris le bâtiment
 		FROM r_patbat.geo_patbat_site s 
 		JOIN r_patbat.an_patbat_entite e ON s.id_entite = e.id_entite
 		WHERE ST_CoveredBy(NEW.geom, s.geom) and e.dbstatut = '10';
@@ -846,6 +944,11 @@ BEGIN
 	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
 
+		UPDATE r_patbat.geo_patbat_site
+    	SET nb_bati = nb_bati + 1 
+    	WHERE id_entite = v_id_site
+    	RETURNING nb_bati INTO v_code_ref_id;
+
 		-- si le bâtiment n'a pas de nom, on reprend le nom du site, et on y ajoute Bâtiment sans nom 
 		IF NEW.nom_usage is null then 
 			NEW.nom_usage := v_nom_usage_site || ' - Batiment sans nom' ;
@@ -855,13 +958,13 @@ BEGIN
             niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut, op_sai, dbinsert
         )
         VALUES (
-            'Bâtiment',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP
+            'Bâtiment', v_code_ref_site || '-B' || v_code_ref_id , NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
 		-- On insère les données dans la table geo_bati, en utilisant le même id_entite et le v_id_site récupéré
-        INSERT INTO r_patbat.geo_patbat_bati (id_entite, geom, etat, id_site,supsol,supdvp)
-        VALUES (nouvel_id, NEW.geom, NEW.etat, v_id_site,ROUND(ST_Area(NEW.geom)::numeric),NEW.supdvp);
+        INSERT INTO r_patbat.geo_patbat_bati (id_entite, geom, etat, id_site,supsol,supdvp,nb_etage)
+        VALUES (nouvel_id, NEW.geom, NEW.etat, v_id_site,ROUND(ST_Area(NEW.geom)::numeric),NEW.supdvp,NEW.nb_etage);
   
 		-- On lance la fonction de calcul de total surface sol des bâtimetns dans un sous-site pour tout les sous-sites dans lequel est compris le bâtiment
 		FOR r IN (SELECT id_entite FROM r_patbat.geo_patbat_ssite WHERE ST_Intersects(NEW.geom, geom)) LOOP
@@ -886,7 +989,8 @@ BEGIN
         SET geom = NEW.geom, 
 		etat = NEW.etat,
 		supsol = ROUND(ST_Area(NEW.geom)::numeric),
-		supdvp = NEW.supdvp
+		supdvp = NEW.supdvp,
+		nb_etage = NEW.nb_etage
         WHERE id_entite = OLD.id_entite;
 
 		-- on recalcule le total surface sol des bâtimetns dans l'ancien sous-site ou se trouvait le bâtiment, ainsi que dans le nouveau
@@ -998,13 +1102,15 @@ DECLARE
 	v_nom_bati varchar; -- le nom court du bâti dans lequel se trouve l'unité fonctionnelle
 	v_insee_bati varchar; --le code insee du bâti dans lequel se trouve l'unité fonctionnelle
 	v_commune_bati varchar; -- le nom de la commune du bâti dans lequel se trouve l'unité fonctionnelle 
+	v_code_ref_bati varchar; -- le code de référence du bâti dans lequel se trouve l'uf
+	v_code_ref_id varchar; --l'id de l'uf a utilser dans le code ref
 BEGIN
 	
 -----------------------------------------------------------------------------------------
---                                       TESTS                                         --
+--                                       CONTROLES DE SAISIE                           --
 -----------------------------------------------------------------------------------------
 
-	SELECT dbstatut, nom_usage, insee, commune INTO v_statut_bati, v_nom_bati, v_insee_bati, v_commune_bati -- on va chercher le statut et le nom du bâtiment dans lequel se trouve l'unité fonctionnelle
+	SELECT dbstatut, nom_usage, insee, commune, ref_code INTO v_statut_bati, v_nom_bati, v_insee_bati, v_commune_bati, v_code_ref_bati -- on va chercher le statut et le nom du bâtiment dans lequel se trouve l'unité fonctionnelle
 	FROM r_patbat.an_patbat_entite 
 	WHERE id_entite = NEW.id_bati;
 
@@ -1027,13 +1133,20 @@ BEGIN
 --                                    OPERATIONS                                       --
 -----------------------------------------------------------------------------------------
 
+	
 	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
+
+		UPDATE r_patbat.geo_patbat_bati
+    	SET nb_uf = nb_uf + 1
+    	WHERE id_entite = NEW.id_bati
+   	 	RETURNING nb_uf INTO v_code_ref_id;
+
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
             niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut, op_sai, dbinsert, insee, commune 
         )
         VALUES (
-            'Unité',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP, v_insee_bati, v_commune_bati
+            'Unité', v_code_ref_bati || '-UF' || v_code_ref_id , NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP, v_insee_bati, v_commune_bati
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
@@ -1140,13 +1253,15 @@ DECLARE
 	v_nom_uf varchar;--le nom de l'uf dans laquelle se trouve le local
 	v_insee_uf varchar; --le code insee du bâti dans lequel se trouve l'unité fonctionnelle
 	v_commune_uf varchar; -- le nom de la commune du bâti dans lequel se trouve l'unité fonctionnelle 
+	v_code_ref_uf varchar; -- le code de référence de l'uf dans lequel se trouve le local 
+	v_code_ref_id varchar; -- l'identifiant du local a utiliser dans le code_ref
 BEGIN
 	
 -----------------------------------------------------------------------------------------
---                                       TESTS                                         --
+--                                       CONTROLES DE SAISIE                           --
 -----------------------------------------------------------------------------------------
 
-	SELECT dbstatut, nom_usage, insee, commune INTO v_statut_uf, v_nom_uf, v_insee_uf, v_commune_uf -- onstocke le statut de l'uf dans laquelle se trouve le local
+	SELECT dbstatut, nom_usage, insee, commune, ref_code INTO v_statut_uf, v_nom_uf, v_insee_uf, v_commune_uf, v_code_ref_uf -- onstocke le statut de l'uf dans laquelle se trouve le local
 	FROM r_patbat.an_patbat_entite 
 	WHERE id_entite = NEW.id_uf;
 
@@ -1168,13 +1283,20 @@ BEGIN
 --                                    OPERATIONS                                       --
 -----------------------------------------------------------------------------------------
 
+
 	-- si l'opération réalisée sur la vue est un INSERT
     IF TG_OP = 'INSERT' THEN
+
+		UPDATE r_patbat.geo_patbat_unite_fonc
+    	SET nb_local = nb_local + 1
+   		WHERE id_entite = v_id_site
+    	RETURNING nb_local INTO v_code_ref_id;
+
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
             niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut, op_sai, dbinsert, insee, commune
         )
         VALUES (
-            'Local',NEW.ref_code, NEW.nom_usage, NEW.nom_officiel,  NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP, v_insee_uf, v_commune_uf
+            'Local',v_code_ref_uf || '-L' || v_code_ref_id , NEW.nom_usage, NEW.nom_officiel,  NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP, v_insee_uf, v_commune_uf
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
@@ -1438,8 +1560,7 @@ BEGIN
     SELECT NEW.id_entite, adr.id_adresse 
     FROM r_objet.geo_objet_pt_adresse pt
     JOIN r_adresse.an_adresse adr ON pt.id_adresse = adr.id_adresse
-    WHERE ST_Intersects(NEW.geom, pt.geom)
-    ON CONFLICT DO NOTHING;
+    WHERE ST_Intersects(NEW.geom, pt.geom) AND NOT EXISTS (SELECT 1 FROM r_patbat.lk_patbat_adresse WHERE id_entite = NEW.id_entite and id_entite = NEW.id_entite); -- test si la liaison n'existe pas déja
 
     RETURN NEW;
 END;
@@ -1467,3 +1588,86 @@ AFTER INSERT OR UPDATE OF geom ON r_patbat.geo_patbat_bati
 FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_r_liaison_adresse_auto();
 
 */
+
+-----------------------------------------------------------------------------------------
+--                                 VÉRIF UNICITÉ                                       --
+-----------------------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION r_patbat.ft_m_verif_unique_contact()
+RETURNS TRIGGER AS $$ 
+BEGIN 
+	IF EXISTS(SELECT 1 FROM r_patbat.lk_patbat_contact WHERE id_contact = NEW.id_contact and id_entite = NEW.id_entite and code_fonction = NEW.code_fonction AND gid IS DISTINCT FROM NEW.gid) THEN
+		RAISE EXCEPTION '<span style="color:red;"><b>Ce contact est déjà affecté à cette entité avec cette même fonction.</b></span><br><br>';
+	END IF;
+	return new;
+END;
+$$ LANGUAGE plpgsql; 
+
+COMMENT ON FUNCTION r_patbat.ft_m_verif_unique_contact IS 'Fonction test afin de garantir l''unicité des valeurs de la table de lien entre les contacts et les entités';
+
+CREATE TRIGGER t_t_verif_unique_contact
+BEFORE INSERT OR UPDATE ON r_patbat.lk_patbat_contact
+FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_verif_unique_contact();
+
+COMMENT ON TRIGGER t_t_verif_unique_contact ON r_patbat.lk_patbat_contact IS 'A l''insert ou l''update, lance la fonction de vérification d''unicité pour les contacts';
+
+
+CREATE OR REPLACE FUNCTION r_patbat.ft_m_verif_unique_pdl()
+RETURNS TRIGGER AS $$ 
+BEGIN 
+	IF EXISTS(SELECT 1 FROM r_patbat.lk_patbat_pdl WHERE id_entite = NEW.id_entite AND id_pdl = NEW.id_pdl AND gid IS DISTINCT FROM NEW.gid) THEN
+		RAISE EXCEPTION '<span style="color:red;"><b>Ce PDL est déja associé à cette entité</b></span><br><br>';
+	END IF;
+	return new;
+END;
+
+$$ LANGUAGE plpgsql; 
+
+COMMENT ON FUNCTION r_patbat.ft_m_verif_unique_pdl IS 'Fonction test afin de garantir l''unicité des valeurs de la table de lien entre les pdl et les entités';
+
+CREATE TRIGGER t_t_verif_unique_pdl
+BEFORE INSERT OR UPDATE ON r_patbat.lk_patbat_pdl
+FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_verif_unique_pdl();
+
+COMMENT ON TRIGGER t_t_verif_unique_pdl ON r_patbat.lk_patbat_pdl IS 'A l''insert ou l''update, lance la fonction de vérification d''unicité pour les pdl';
+
+
+CREATE OR REPLACE FUNCTION r_patbat.ft_m_verif_unique_orga_role()
+RETURNS TRIGGER AS $$ 
+BEGIN 
+	IF EXISTS(SELECT 1 FROM r_patbat.lk_patbat_orga_role WHERE id_entite = NEW.id_entite AND id_orga = NEW.id_orga AND code_role = NEW.code_role AND gid IS DISTINCT FROM NEW.gid) THEN 
+		RAISE EXCEPTION '<span style="color:red;"><b>Cette organisation est déja reliée à cette entité avec ce rôle </b></span><br><br>';
+	END IF;	
+	return new;
+END;
+
+$$ LANGUAGE plpgsql; 
+
+COMMENT ON FUNCTION r_patbat.ft_m_verif_unique_orga_role IS 'Fonction test afin de garantir l''unicité des valeurs de la table de lien entre les organismes, leurs rôles, et les entités';
+
+CREATE TRIGGER t_t_verif_unique_orga_role
+BEFORE INSERT OR UPDATE ON r_patbat.lk_patbat_orga_role
+FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_verif_unique_orga_role();
+
+COMMENT ON TRIGGER t_t_verif_unique_orga_role ON r_patbat.lk_patbat_orga_role IS 'A l''insert ou l''update, lance la fonction de vérification d''unicité pour les organisations et leur rôle';
+
+
+CREATE OR REPLACE FUNCTION r_patbat.ft_m_verif_unique_adresse()
+RETURNS TRIGGER AS $$ 
+BEGIN 
+	IF EXISTS(SELECT 1 FROM r_patbat.lk_patbat_adresse WHERE id_entite = NEW.id_entite AND id_adresse = NEW.id_adresse AND gid IS DISTINCT FROM NEW.gid) THEN 
+		RAISE EXCEPTION '<span style="color:red;"><b>Cette adresse est déja reliée à cette entité</b></span><br><br>';
+	END IF;
+	return new;
+END;
+
+$$ LANGUAGE plpgsql; 
+
+COMMENT ON FUNCTION r_patbat.ft_m_verif_unique_adresse IS 'Fonction test afin de garantir l''unicité des valeurs de la table de lien entre les adresses et les entités';
+
+CREATE TRIGGER t_t_verif_unique_adresse
+BEFORE INSERT OR UPDATE ON r_patbat.lk_patbat_adresse
+FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_verif_unique_adresse();
+
+COMMENT ON TRIGGER t_t_verif_unique_adresse ON r_patbat.lk_patbat_adresse IS 'A l''insert ou l''update, lance la fonction de vérification d''unicité pour les contacts';
+
