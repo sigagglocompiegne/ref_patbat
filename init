@@ -14,6 +14,15 @@ COMMENT ON SEQUENCE r_patbat.patbat_site_seq IS 'Séquence de comptage de sites,
 CREATE SEQUENCE r_patbat.patbat_log_seq START 1; -- Séquence pour calculer la clé primaire de la table de logs 
 
 COMMENT ON SEQUENCE r_patbat.patbat_log_seq IS 'Séquence de clé primaire pour les logs';
+
+CREATE SEQUENCE r_patbat.patbat_lien_pdl_site_seq START 1;
+CREATE SEQUENCE r_patbat.patbat_lien_pdl_ssite_seq START 1;
+CREATE SEQUENCE r_patbat.patbat_lien_pdl_bati_seq START 1;
+CREATE SEQUENCE r_patbat.patbat_lien_pdl_uf_seq START 1;
+CREATE SEQUENCE r_patbat.patbat_lien_pdl_local_seq START 1;
+CREATE SEQUENCE r_patbat.patbat_lien_pdl_parent_seq START 1;
+
+
 -----------------------------------------------------------------------------------------
 --																					   --
 --								       CRÉATION TABLES					               --
@@ -74,8 +83,8 @@ create table r_patbat.an_patbat_entite( -- sous-categorie, contacts, orga_roles,
 	nom_usage varchar(100) NOT NULL,
 	nom_officiel varchar(100),
 	categorie varchar(50) NOT NULL, --talbe de valeur
+	sous_categories text,
 	type_etablissement VARCHAR(50), -- Contiendra 'ERP','ERT' ou 'ERP;ERT'
-    parcelles text,           -- Contiendra les IDs des parcelles, ex: '000AB01';'000AB02'
 	insee varchar(5), -- lien r_osm.geo_vm_osm_commune_arc
 	commune varchar(80), -- lien r_osm.geo_vm_osm_commune_arc
 	observ text,
@@ -96,7 +105,6 @@ COMMENT ON COLUMN r_patbat.an_patbat_entite.nom_usage IS 'Nom d''usage de l''ent
 COMMENT ON COLUMN r_patbat.an_patbat_entite.nom_officiel IS 'Nom officiel de l''entité' ;
 COMMENT ON COLUMN r_patbat.an_patbat_entite.categorie IS 'Catégorie principale de l''entité';
 COMMENT ON COLUMN r_patbat.an_patbat_entite.type_etablissement IS 'Types d''établisssement de l''entité' ;
-COMMENT ON COLUMN r_patbat.an_patbat_entite.parcelles IS 'Numéros parcellaires sur lesquels se trouve l''entité' ;
 COMMENT ON COLUMN r_patbat.an_patbat_entite.insee IS 'Code insee de la commune dans laquelle se trouve l''entité' ;
 COMMENT ON COLUMN r_patbat.an_patbat_entite.commune IS 'Nom de la commune dans laquelle se trouve l''entité' ;
 COMMENT ON COLUMN r_patbat.an_patbat_entite.observ IS 'Commentaires divers' ;
@@ -124,8 +132,8 @@ comment on column r_patbat.geo_patbat_site.geom is 'Géométrie du site';
 comment on column r_patbat.geo_patbat_site.supsite is 'Superficie du site, champ calculé auto à l''insert ';
 comment on column r_patbat.geo_patbat_site.supsol_tot_bati is 'Calculé du total de la superficie au sol des bâtiments compris dans le site';
 comment on column r_patbat.geo_patbat_site.supdvp_tot_bati is 'Calculé du total de la superficie développée des bâtiments compris dans le site';
-COMMENT ON COLUMN r_patbat.geo_patbat_site.nb_bati IS 'Nombre de bâtiments compris dans le site, augmenté automatiquement';
-COMMENT ON COLUMN r_patbat.geo_patbat_site.nb_ssite IS 'Nombre de sous-sites compris dans le site, augmenté automatiquement';
+COMMENT ON COLUMN r_patbat.geo_patbat_site.nb_bati IS 'Compte du nombre de bâtiments qui ont été présent dans le site, utilisé dans le code de référence des bâtiments, augmenté de façon automatique';
+COMMENT ON COLUMN r_patbat.geo_patbat_site.nb_ssite IS 'Compte du nombre de sous-sites qui ont été présent dans le site, utilisé dans le code de référence des sous-sites, augmenté de façon automatique';
 
 
 create table r_patbat.geo_patbat_ssite(
@@ -169,7 +177,7 @@ comment on column r_patbat.geo_patbat_bati.geom is 'Géométrie du bâtiment';
 comment on column r_patbat.geo_patbat_bati.supsol is 'Superficie au sol du bâtiment, champ calculé auto à l''insert ';
 comment on column r_patbat.geo_patbat_bati.supdvp is 'Superficie développée du bâtiment';
 comment on column r_patbat.geo_patbat_bati.nb_etage is 'Nombre d''étage du bâtiment';
-COMMENT ON COLUMN r_patbat.geo_patbat_bati.nb_uf IS 'Nombre d''unité fonctionnelles présentes dans le bâtiment, augmenté automatiquement';
+COMMENT ON COLUMN r_patbat.geo_patbat_bati.nb_uf IS 'Compte du nombre d''unités fonctionnelles qui ont été présent dans le bâtiment, utilisé dans le code de référence des UFs, augmenté de façon automatique';
 
 create table r_patbat.an_patbat_unite_fonc(
 	id_entite int4 primary key,	
@@ -185,7 +193,7 @@ comment on table r_patbat.an_patbat_unite_fonc is 'Classe attributaire regroupan
 comment on column r_patbat.an_patbat_unite_fonc.id_entite is 'Identifiant de l''entité';
 COMMENT ON COLUMN r_patbat.an_patbat_unite_fonc.id_bati IS 'Identifiant du bâtiment dans lequel se trouve l''unité fonctionelle';
 comment on column r_patbat.an_patbat_unite_fonc.supdvp is 'Superficie développée de l''unité fonctionnelle';
-COMMENT ON COLUMN r_patbat.an_patbat_unite_fonc.nb_local IS 'Nombre de locaux présents dans l''unité fonctionnelle, augmenté automatiquement';
+COMMENT ON COLUMN r_patbat.an_patbat_unite_fonc.nb_local IS 'Compte du nombre de locaux qui ont été présent dans l''UF, utilisé dans le code de référence des locaux, augmenté de façon automatique';
 
 
 create table r_patbat.an_patbat_local(
@@ -352,62 +360,69 @@ INSERT INTO r_patbat.an_patbat_contact(denomination,tel,mobile,email,organisme) 
 
 create table r_patbat.lt_patbat_sous_cat(
 	code varchar(2) primary key,
-	valeur varchar(100) NOT NULL
+	code_cate varchar(2),
+	valeur varchar(100) NOT NULL,
+	
+	CONSTRAINT lt_sous_cat_code_cate_fkey FOREIGN KEY (code_cate) REFERENCES r_patbat.lt_patbat_categorie (code)
 );
 comment on table r_patbat.lt_patbat_sous_cat is 'Table de valeur des sous-categories';
 comment on column r_patbat.lt_patbat_sous_cat.code is 'Code de la sous-categorie';
+comment on column r_patbat.lt_patbat_sous_cat.code_cate is 'Code de la catégorie principale à laquelle est liée la sous catégorie';
 comment on column r_patbat.lt_patbat_sous_cat.valeur is 'Valeur de la sous-catégorie';
 
-INSERT INTO r_patbat.lt_patbat_sous_cat (code, valeur) VALUES 
-('11', 'Hôtel de Ville / Siège administratif'),
-('12', 'Annexe administrative / Bureaux'),
-('13', 'Accueil du public / Guichet'),
-('14', 'Sécurité (Police municipale, Gendarmerie)'),
-('21', 'École Maternelle'),
-('22', 'École Élémentaire'),
-('23', 'Groupe Scolaire (Mixte)'),
-('24', 'Crèche / Halte-garderie'),
-('25', 'Périscolaire / Accueil de loisirs (ALSH)'),
-('26', 'Enseignement secondaire ou supérieur'),
-('31', 'Gymnase / Halle des sports / Complexe'),
-('32', 'Piscine / Centre aquatique'),
-('33', 'Stade / Vestiaires / Tribunes'),
-('34', 'City stade / Plateau sportif de proximité'),
-('35', 'Base nautique / Équipement spécifique'),
-('41', 'Médiathèque / Bibliothèque'),
-('42', 'Musée / Centre d''exposition'),
-('43', 'Salle des fêtes / Polyvalente'),
-('44', 'Théâtre / Salle de spectacle / Conservatoire'),
-('45', 'Édifice religieux (Église, chapelle)'),
-('46', 'Monument historique / Vestige remarquable'),
-('51', 'Centre Technique (CTM / CTI)'),
-('52', 'Ateliers / Magasin / Archives'),
-('53', 'Déchetterie / Station d''épuration'),
-('54', 'Chaufferie / Sous-station / Réseau de chaleur'),
-('55', 'Local technique spécialisé'),
-('61', 'CCAS / CIAS / Pôle solidarité'),
-('62', 'Maison de santé / Centre médical / Dispensaire'),
-('63', 'Foyer d''hébergement / Résidence autonomie'),
-('64', 'Épicerie sociale et solidaire'),
-('71', 'Pépinière / Hôtel d''entreprises'),
-('72', 'Tiers-lieu / Espace de coworking'),
-('73', 'Local commercial ou artisanal loué'),
-('74', 'Bâtiment à vocation agricole'),
-('81', 'Logement de fonction'),
-('82', 'Logement d''urgence'),
-('83', 'Bâtiment d''habitation classique');
+INSERT INTO r_patbat.lt_patbat_sous_cat (code, code_cate, valeur) VALUES 
+('11', '10', 'Hôtel de Ville / Siège administratif'),
+('12', '10', 'Annexe administrative / Bureaux'),
+('13', '10', 'Accueil du public / Guichet'),
+('14', '10', 'Sécurité (Police municipale, Gendarmerie)'),
+('21', '20', 'École Maternelle'),
+('22', '20', 'École Élémentaire'),
+('23', '20', 'Groupe Scolaire (Mixte)'),
+('24', '20', 'Crèche / Halte-garderie'),
+('25', '20', 'Périscolaire / Accueil de loisirs (ALSH)'),
+('26', '20', 'Enseignement secondaire ou supérieur'),
+('31', '30', 'Gymnase / Halle des sports / Complexe'),
+('32', '30', 'Piscine / Centre aquatique'),
+('33', '30', 'Stade / Vestiaires / Tribunes'),
+('34', '30', 'City stade / Plateau sportif de proximité'),
+('35', '30', 'Base nautique / Équipement spécifique'),
+('41', '40', 'Médiathèque / Bibliothèque'),
+('42', '40', 'Musée / Centre d''exposition'),
+('43', '40', 'Salle des fêtes / Polyvalente'),
+('44', '40', 'Théâtre / Salle de spectacle / Conservatoire'),
+('45', '40', 'Édifice religieux (Église, chapelle)'),
+('46', '40', 'Monument historique / Vestige remarquable'),
+('51', '50', 'Centre Technique (CTM / CTI)'),
+('52', '50', 'Ateliers / Magasin / Archives'),
+('53', '50', 'Déchetterie / Station d''épuration'),
+('54', '50', 'Chaufferie / Sous-station / Réseau de chaleur'),
+('55', '50', 'Local technique spécialisé'),
+('61', '60', 'CCAS / CIAS / Pôle solidarité'),
+('62', '60', 'Maison de santé / Centre médical / Dispensaire'),
+('63', '60', 'Foyer d''hébergement / Résidence autonomie'),
+('64', '60', 'Épicerie sociale et solidaire'),
+('71', '70', 'Pépinière / Hôtel d''entreprises'),
+('72', '70', 'Tiers-lieu / Espace de coworking'),
+('73', '70', 'Local commercial ou artisanal loué'),
+('74', '70', 'Bâtiment à vocation agricole'),
+('81', '80', 'Logement de fonction'),
+('82', '80', 'Logement d''urgence'),
+('83', '80', 'Bâtiment d''habitation classique');
 
+/*
 create table r_patbat.lk_patbat_sous_cat(
 	gid serial PRIMARY KEY,
 	id_entite int4 NOT NULL,
 	code_sous_cat varchar(2) NOT NULL,
 	
-	constraint lk_sous_cat_fkey foreign key(id_entite) references r_patbat.an_patbat_entite(id_entite)
+	constraint lk_sous_cat_fkey foreign key(id_entite) references r_patbat.an_patbat_entite(id_entite),
+	CONSTRAINT lk_sous_cat_code_fkey FOREIGN KEY (code_sous_cat) REFERENCES r_patbat.lt_patbat_sous_cat(code)
 );
 comment on table r_patbat.lk_patbat_sous_cat is 'Classe de relation entre les sous-categories et les entites';
 comment on column r_patbat.lk_patbat_sous_cat.gid is 'Identifiant unique du lien entre entité et sous catégorie';
 comment on column r_patbat.lk_patbat_sous_cat.id_entite is 'Identifiant de l''entite';
 comment on column r_patbat.lk_patbat_sous_cat.code_sous_cat is 'Code de la sous-categorie';
+*/
 
 CREATE TABLE r_patbat.lt_patbat_type_eta( -- Table utilisée dans QGIS pour faire une liste de valeurs pour les types d'établissements des entités
 	code varchar(3) PRIMARY KEY ,
@@ -464,7 +479,7 @@ CREATE TABLE r_patbat.geo_patbat_pdl(
 	geom Geometry(Point,2154),
 
 	CONSTRAINT geo_patbat_pdl_fluide_fkey FOREIGN KEY(type_fluide) REFERENCES r_patbat.lt_patbat_fluide(code),
-	CONSTRAINT pdl_parent_fkey FOREIGN KEY (compteur_parent) REFERENCES r_patbat.geo_patbat_pdl(code_ref) ON DELETE SET NULL 
+	CONSTRAINT pdl_parent_fkey FOREIGN KEY (compteur_parent) REFERENCES r_patbat.geo_patbat_pdl(code_ref) ON DELETE SET NULL ON UPDATE CASCADE -- si on update le code ref d'un parent, ca se répercute dans les sous-compteurs
 
 );
 
@@ -569,6 +584,25 @@ COMMENT ON COLUMN r_patbat.an_patbat_log.dataold IS 'Données datant d''avant le
 COMMENT ON COLUMN r_patbat.an_patbat_log.datanew IS 'Données après le log';
 COMMENT ON COLUMN r_patbat.an_patbat_log.dbupdate IS 'Date de mise à jour';
 
+
+CREATE TABLE r_patbat.an_patbat_parcelle(
+	gid serial PRIMARY KEY,
+	id_entite int4,
+	insee varchar(5),
+	commune varchar(80),
+	geo_parcelle text,
+	section text,
+	numero text
+);
+
+COMMENT ON TABLE r_patbat.an_patbat_parcelle IS 'Table de lien entre les entités géographiques et les parcelles sur lesquelles elles se situent';
+COMMENT ON COLUMN r_patbat.an_patbat_parcelle.gid IS 'Identifiant unique du lien entre la parcelle et l''entité qui est dessus';
+COMMENT ON COLUMN r_patbat.an_patbat_parcelle.id_entite IS 'Identifiant de l''entité';
+COMMENT ON COLUMN r_patbat.an_patbat_parcelle.insee IS 'Code insee de la parcelle';
+COMMENT ON COLUMN r_patbat.an_patbat_parcelle.commune IS 'Commune de la parcelle';
+COMMENT ON COLUMN r_patbat.an_patbat_parcelle.geo_parcelle IS 'Identifiant de la parcelle';
+COMMENT ON COLUMN r_patbat.an_patbat_parcelle.section IS 'Section de la commune dans lequel se trouve la parcelle';
+COMMENT ON COLUMN r_patbat.an_patbat_parcelle.numero IS 'Numéro de la parcelle';
 
 -----------------------------------------------------------------------------------------
 --                                   TABLES DE LIEN                                    --
@@ -697,6 +731,7 @@ COMMENT ON COLUMN r_patbat.lk_patbat_uf_local.gid IS 'Identifiant unique du lien
 COMMENT ON COLUMN r_patbat.lk_patbat_uf_local.id_uf IS 'Identifiant de l''unité fonctionnelle';
 COMMENT ON COLUMN r_patbat.lk_patbat_uf_local.id_local IS 'Identifiant du local';
 
+
 -----------------------------------------------------------------------------------------
 --																					   --
 --								       VUES DE GESTION					               --
@@ -713,6 +748,7 @@ CREATE OR REPLACE VIEW r_patbat.geo_v_patbat_site AS
 		e.nom_usage,
 		e.nom_officiel,
 		e.categorie,
+		e.sous_categories,
 		e.observ,
 		e.type_etablissement,
 		e.dbstatut,
@@ -726,7 +762,6 @@ CREATE OR REPLACE VIEW r_patbat.geo_v_patbat_site AS
 		e.dbupdate,
 		e.insee,
 		e.commune,
-		e.parcelles,
 		s.geom
 	FROM r_patbat.an_patbat_entite e
 	JOIN r_patbat.geo_patbat_site s ON e.id_entite = s.id_entite;
@@ -750,7 +785,6 @@ COMMENT ON COLUMN r_patbat.geo_v_patbat_site.dbinsert IS 'Date d''insertion du s
 COMMENT ON COLUMN r_patbat.geo_v_patbat_site.dbupdate IS 'Date de mise à jour du site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_site.insee IS 'Code insee de la commune du site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_site.commune IS 'Nom de la commune du site';
-COMMENT ON COLUMN r_patbat.geo_v_patbat_site.parcelles IS 'Parcelles cadastrales du site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_site.geom IS 'Géométrie du site';
 
 
@@ -760,22 +794,33 @@ DECLARE
     nouvel_id INT; --variable dans laquelle on va stocker l'id_entite qu'on crée
 	
 	v_code_ref_id INT; --variable dans laquelle on stocke l'id de site du code de référence
+	r RECORD; --variable de boucle 
 BEGIN
 
 -----------------------------------------------------------------------------------------
 --                                      CONTROLES DE SAISIE                            --
 -----------------------------------------------------------------------------------------
 
-	-- test de superposition avec un autre site
-	IF EXISTS (SELECT 1 FROM r_patbat.geo_patbat_site s 
+	IF TG_OP IN ('INSERT','UPDATE') THEN
+		-- test de superposition avec un autre site
+		FOR r in (SELECT s.geom 
+				FROM r_patbat.geo_patbat_site s -- pour tout les sites qui intersectent le nouveau site
 				JOIN r_patbat.an_patbat_entite e ON s.id_entite = e.id_entite
 				WHERE s.id_entite is distinct from NEW.id_entite  		
 				AND e.dbstatut IS DISTINCT FROM '11' 
 			    AND NEW.dbstatut IS DISTINCT FROM '11' 
-				AND (ST_Intersects(NEW.geom,s.geom) and not ST_Touches(NEW.geom,s.geom))
-				AND ST_Intersects(ST_Buffer(NEW.geom, -0.1), s.geom)) THEN -- Buffer négatif de 10cm
-		RAISE EXCEPTION '<span style="color:red;"><b>Le site se superpose à un autre site actif</b></span><br><br>';
+				AND ST_Intersects(NEW.geom,s.geom) and not ST_Touches(NEW.geom,s.geom))
+		LOOP
+		-- on soustrait de NEW.geom, sa partie qui est également dans les géométries des autres sites
+		NEW.geom := ST_Difference(NEW.geom,r.geom);
+		END LOOP;
+
+		-- test si le site est compris entièrement dans un autre site
+		IF ST_IsEmpty(NEW.geom) OR NEW.geom IS NULL THEN
+			RAISE EXCEPTION '<span style="color:red;"><b>Le site est entièrement compris dans un autre site existant</b></span><br><br>';
+		END IF;
 	END IF;
+
 
 	-- test que le site est bien dans une seule commune 
 	IF (SELECT count(*) FROM r_osm.geo_osm_commune c WHERE ST_Intersects(NEW.geom, c.geom) AND NOT ST_Touches(NEW.geom, c.geom)) > 1 THEN 
@@ -799,10 +844,10 @@ BEGIN
 	v_code_ref_id := nextval('r_patbat.patbat_site_seq');
 
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite 
-            niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut, op_sai, dbinsert
+            niveau,ref_code, nom_usage, nom_officiel, categorie, sous_categories, observ, type_etablissement, dbstatut, op_sai, dbinsert
         )
         VALUES (
-            'Site', 'S' || v_code_ref_id , NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP
+            'Site', 'S' || v_code_ref_id , NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.sous_categories, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
@@ -821,21 +866,27 @@ BEGIN
 			IF EXISTS (SELECT 1 FROM r_patbat.geo_patbat_ssite ss
 						JOIN r_patbat.an_patbat_entite e ON e.id_entite = ss.id_entite 
 						WHERE ss.id_site = NEW.id_entite and e.dbstatut = '10' and NOT ST_CoveredBy(ss.geom,NEW.geom)) then
-			 RAISE EXCEPTION '<span style="color:red;"><b>Un sous-site n'' est plus compris dans un site</b></span><br><br>';
+			 RAISE EXCEPTION '<span style="color:red;"><b>Un sous-site n''est plus compris dans un site</b></span><br><br>';
 			END IF;
 			-- Bati
 			IF EXISTS (SELECT 1 FROM r_patbat.geo_patbat_bati b
 						JOIN r_patbat.an_patbat_entite e ON e.id_entite = b.id_entite 
 						WHERE b.id_site = NEW.id_entite and e.dbstatut = '10' and NOT ST_CoveredBy(b.geom,NEW.geom)) then
-			 RAISE EXCEPTION '<span style="color:red;"><b>Un bâtiment n'' est plus compris dans un site</b></span><br><br>';
+			 RAISE EXCEPTION '<span style="color:red;"><b>Un bâtiment n''est plus compris dans un site</b></span><br><br>';
 			END IF;
 		end if; 
+
+		-- si on essaie de changer la superficie dvp des bâtiments du site, alors qu'elle est mesurée, on l'interdit 
+		IF NEW.supdvp_tot_bati is distinct from OLD.supdvp_tot_bati and NEW.supdvp_tot_mesuree = True then
+			RAISE EXCEPTION '<span style="color:red;"><b>Impossible de changer la superficie totale des bâtiments si elle est mesurée</b></span><br><br>';
+		END IF;
 
         UPDATE r_patbat.an_patbat_entite -- on update la table an_entite
         SET ref_code = NEW.ref_code,
             nom_usage = NEW.nom_usage,
             nom_officiel = NEW.nom_officiel,
             categorie = NEW.categorie,
+			sous_categories = NEW.sous_categories,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement,
 			dbstatut = NEW.dbstatut, 
@@ -846,7 +897,8 @@ BEGIN
 
         UPDATE r_patbat.geo_patbat_site -- on update la table geo_site
         SET geom = NEW.geom,
-		supsite = ROUND(ST_Area(NEW.geom)::numeric)
+		supsite = ROUND(ST_Area(NEW.geom)::numeric),
+		supdvp_tot_bati = NEW.supdvp_tot_bati
         WHERE id_entite = OLD.id_entite;
 
         RETURN NEW;
@@ -875,7 +927,7 @@ BEGIN
 
 			DELETE FROM r_patbat.geo_v_patbat_bati WHERE ST_CoveredBy(geom,OLD.geom) and dbstatut is distinct from '11' ; -- désactivation des bâtiments activés compris dans le site
 			
-			UPDATE r_patbat.an_patbat_entite -- on désactive le bâtiment (dbstatut = '11')
+			UPDATE r_patbat.an_patbat_entite -- on désactive le site (dbstatut = '11')
 			SET dbstatut = '11' 
 			WHERE id_entite = OLD.id_entite;
 		END IF;
@@ -905,9 +957,11 @@ create or replace view r_patbat.geo_v_patbat_ssite as
 	e.nom_usage,
 	e.nom_officiel,
 	e.categorie,
+	e.sous_categories,
 	e.observ,
 	e.type_etablissement,
 	e.dbstatut,
+	ss.id_site,
 	ss.supsite,
 	ss.supsol_tot_bati,
 	e.op_sai,
@@ -916,7 +970,6 @@ create or replace view r_patbat.geo_v_patbat_ssite as
 	e.dbupdate,
 	e.insee,
 	e.commune,
-	e.parcelles,
 	ss.geom
 	from r_patbat.an_patbat_entite e
  	join r_patbat.geo_patbat_ssite ss on e.id_entite = ss.id_entite;
@@ -930,6 +983,7 @@ COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.categorie IS 'Catégorie principal
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.observ IS 'Commentaires divers sur le sous-site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.type_etablissement IS 'Types d''établissements du sous-site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.dbstatut IS 'Statut du sous-site (actif ou désactivé)';
+COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.id_site IS 'Identifiant entité du site dans lequel se trouve le sous-site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.supsite IS 'Superficie au sol du sous-site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.supsol_tot_bati IS 'Superficie au sol totale des bâtiments du site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.op_sai IS 'Login de la personne ayant saisi le sous-site';
@@ -938,50 +992,69 @@ COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.dbinsert IS 'Date d''insertion du 
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.dbupdate IS 'Date de mise à jour du sous-site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.insee IS 'Code insee du sous-site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.commune IS 'Nom de la commune du sous-site';
-COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.parcelles IS 'Parcelles cadastrales du sous-site';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_ssite.geom IS 'Géométrie du sous-site';
 
 CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_ssite()
 RETURNS TRIGGER AS $$
 DECLARE
-    nouvel_id INT; --variable dans laquelle on va stocker l'id_entite qu'on crée
+    nouvel_id INT; --variable dans laquelle on va stocker l'id_entite qu'on crée lors d'un insert
 	v_id_site INT; -- l'id du site dans lequel est compris le sous-site
 	v_statut_site VARCHAR; --le statut du site dans lequel est compris le sous-site
 	v_nom_site varchar; -- le nom du site dans lequel est compris le sous-site
 	v_code_ref_site varchar; -- le code de référence du site dans lequel et compris le sous-site
+	v_geom_site Geometry(MultiPolygon, 2154); -- la géométrie du site dans lequel est compris le sous-site
 	v_code_ref_id varchar; -- variable dans laquelle on stocke l'id du ssite utilisé dans le code de référence
+	v_id_actuel int; -- variable dans laquelle on stocke l'id_entite qu'on crée
+	r RECORD; -- variable de boucle
 BEGIN
 
 -----------------------------------------------------------------------------------------
 --                                       CONTROLES DE SAISIE                           --
 -----------------------------------------------------------------------------------------
+		
+	IF TG_OP IN ('UPDATE','INSERT') THEN  
 
-	SELECT s.id_entite, e.dbstatut, e.ref_code INTO v_id_site, v_statut_site, v_code_ref_site -- on stocke l'id et le staut du site actif dans lequel est compris le sous-site
-	FROM r_patbat.geo_patbat_site s 
-	JOIN r_patbat.an_patbat_entite e ON s.id_entite = e.id_entite
-	WHERE ST_CoveredBy(ST_Buffer(NEW.geom, -0.1), s.geom) and e.dbstatut = '10';
+		SELECT s.id_entite, e.dbstatut, e.ref_code, s.geom INTO v_id_site, v_statut_site, v_code_ref_site ,v_geom_site -- on stocke l'id et le staut du site actif dans lequel est compris le sous-site
+		FROM r_patbat.geo_patbat_site s 
+		JOIN r_patbat.an_patbat_entite e ON s.id_entite = e.id_entite
+		WHERE ST_Intersects(NEW.geom,s.geom) and e.dbstatut = '10'
+		ORDER BY ST_Area(ST_Intersection(NEW.geom,s.geom)) DESC -- au cas ou le sous-site est compris dans 2 sites, on ne garde que le site avec l'intersection la plus grande
+		LIMIT 1;
 
-	-- on teste si le sous-site est bien compris dans un site 
-    IF TG_OP IN ('UPDATE','INSERT') AND v_id_site IS NULL THEN 
-		RAISE EXCEPTION '<span style="color:red;"><b>Le sous-site n''est pas compris dans un site</b></span><br><br>';
-	END IF;
+		-- On ne garde de la géométrie du sous-site que la partie qui est dans le site 
+		NEW.geom := ST_Intersection(NEW.geom,v_geom_site);
+
+		-- on teste si le sous-site est bien compris dans un site 
+   		IF v_id_site IS NULL THEN 
+			RAISE EXCEPTION '<span style="color:red;"><b>Le sous-site n''est pas compris dans un site</b></span><br><br>';
+		END IF;
+
+	END IF; 
 
 	-- Vérification de la cohérence des statuts, impossible de mettre un sous-site actif dans un site désactivé
 	IF v_statut_site = '11' AND NEW.dbstatut != '11' THEN
 		RAISE EXCEPTION '<span style="color:red;"><b>Impossible d''insérer ou de rendre actif un sous-site dans un site désactivé (dbstatut = 11)</b></span><br><br>';
 	END IF;
 
-	-- on vérifie si le sous-site actif ne se superpose pas avec un autre sous-site actif
-	IF EXISTS(SELECT 1 FROM r_patbat.geo_patbat_ssite ss 
+	IF TG_OP IN ('UPDATE','INSERT') THEN  
+
+		-- on vérifie si le sous-site actif ne se superpose pas avec un autre sous-site actif
+		FOR r in (SELECT ss.geom FROM r_patbat.geo_patbat_ssite ss 
 			  JOIN r_patbat.an_patbat_entite e ON ss.id_entite = e.id_entite
 			  WHERE ss.id_entite is distinct from NEW.id_entite 
 			  AND e.dbstatut IS DISTINCT FROM '11' 
 			  AND NEW.dbstatut IS DISTINCT FROM '11'  
-			  AND (ST_Intersects(NEW.geom,ss.geom) AND NOT ST_Touches(NEW.geom,ss.geom))
-			  AND ST_Intersects(ST_Buffer(NEW.geom, -0.1), ss.geom)) THEN
-		RAISE EXCEPTION '<span style="color:red;"><b>Le sous-site se superpose avec un autre sous-site</b></span><br><br>';
-	END IF;  
+			  AND ST_Intersects(NEW.geom,ss.geom) AND NOT ST_Touches(NEW.geom,ss.geom))
+		LOOP
+		-- on soustrait de NEW.geom la partie de sa géométrie qui est comprise dans un autre sous-site
+			NEW.geom = ST_Difference(NEW.geom,r.geom);
+		END LOOP;
 
+		IF ST_IsEmpty(NEW.geom) OR NEW.geom IS NULL THEN
+			RAISE EXCEPTION '<span style="color:red;"><b>Le sous-site est entièrement compris dans un autre sous-site existant</b></span><br><br>';
+		END IF; 
+
+	END IF;
 	-- on verifie que le site a bien un nom d'usage
 	IF NEW.nom_usage is null and TG_OP != 'DELETE' then 
 		RAISE EXCEPTION '<span style="color:red;"><b>Le sous-site doit au moins avoir un nom d''usage</b></span><br><br>';
@@ -1000,10 +1073,10 @@ BEGIN
     	RETURNING nb_ssite INTO v_code_ref_id;
 
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
-            niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut, op_sai, dbinsert
+            niveau,ref_code, nom_usage, nom_officiel, categorie, sous_categories, observ, type_etablissement, dbstatut, op_sai, dbinsert
         )
         VALUES (
-            'Sous-Site',v_code_ref_site || ' - S.S' || v_code_ref_id, NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP
+            'Sous-Site',v_code_ref_site || ' - S.S' || v_code_ref_id, NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.sous_categories, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
@@ -1018,8 +1091,6 @@ BEGIN
 		-- On lance la fonction de calcul du total de la superficie au sol des bâtiments compris dans le sous-site
 		PERFORM r_patbat.ft_r_maj_supsol_ssite(nouvel_id);
 
-        RETURN NEW;
-
 	-- si l'opération réalisée sur la vue est un UPDATE
     ELSIF TG_OP = 'UPDATE' THEN
         UPDATE r_patbat.an_patbat_entite -- on update la table an_entite
@@ -1027,6 +1098,7 @@ BEGIN
             nom_usage = NEW.nom_usage,
             nom_officiel = NEW.nom_officiel,
             categorie = NEW.categorie,
+			sous_categories = NEW.sous_categories,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement,
 			dbstatut = NEW.dbstatut,
@@ -1039,41 +1111,8 @@ BEGIN
 		supsite = ROUND(ST_Area(NEW.geom)::numeric)
         WHERE id_entite = OLD.id_entite;
 
-		-- On teste si la géométrie du ssite a changé, si oui alors on recalcule les liens avec les entités du dessous
-		IF NEW.geom != OLD.geom THEN
-			-- 1. On détruit les liens vers le bas
-			DELETE FROM r_patbat.lk_patbat_ssite_bati WHERE id_ssite = NEW.id_entite;
-			DELETE FROM r_patbat.lk_patbat_ssite_uf WHERE id_ssite = NEW.id_entite;
-			DELETE FROM r_patbat.lk_patbat_ssite_local WHERE id_ssite = NEW.id_entite;
-
-			-- 2. On recrée les liens Bâtiment
-			-- on récupère les id bati des bâtiments compris dans le ssite
-			INSERT INTO r_patbat.lk_patbat_ssite_bati (id_ssite, id_bati)
-			SELECT NEW.id_entite, id_entite 
-			FROM r_patbat.geo_patbat_bati 
-			WHERE ST_Intersects(NEW.geom, geom);
-
-			-- 3. On recrée les liens UF
-			-- on récupère l'uf en partant du lien entre son bati et le ssite
-			INSERT INTO r_patbat.lk_patbat_ssite_uf (id_ssite, id_uf)
-			SELECT NEW.id_entite, uf.id_entite 
-			FROM r_patbat.lk_patbat_ssite_bati lk
-			JOIN r_patbat.an_patbat_unite_fonc uf ON uf.id_bati = lk.id_bati
-			WHERE lk.id_ssite = NEW.id_entite;
-
-			-- 4. On recrée les liens Local
-			-- on récupère le local en pattant du lien entre son uf et le ssite
-			INSERT INTO r_patbat.lk_patbat_ssite_local (id_ssite, id_local)
-			SELECT NEW.id_entite, l.id_entite 
-			FROM r_patbat.lk_patbat_ssite_uf lk
-			JOIN r_patbat.an_patbat_local l ON l.id_uf = lk.id_uf
-			WHERE lk.id_ssite = NEW.id_entite;
-		END IF;
-
 		-- On lance la fonction de calcul du total de la superficie au sol des bâtiments compris dans le sous-site
 		PERFORM r_patbat.ft_r_maj_supsol_ssite(NEW.id_entite);
-
-        RETURN NEW;
 
 	-- si l'opération réalisée sur la vue est un DELETE
     ELSIF TG_OP = 'DELETE' THEN
@@ -1086,12 +1125,49 @@ BEGIN
 			UPDATE r_patbat.an_patbat_entite -- on désactive le sous-site (dbstatut = '11')
 			SET dbstatut = '11' 
 			WHERE id_entite = OLD.id_entite;
-		END IF;
-        
-        RETURN OLD;
+		END IF; 
     END IF;
+
+    -- On teste si la géométrie du ssite a changé ou si on vient d'insérer le sous-site, si oui alors on recalcule les liens avec les entités du dessous
+	IF TG_OP IN ('INSERT', 'UPDATE') THEN
+		IF TG_OP = 'INSERT' OR NEW.geom != OLD.geom THEN
+			v_id_actuel := COALESCE(nouvel_id, NEW.id_entite);
+
+			-- 1. On détruit les liens vers le bas
+			DELETE FROM r_patbat.lk_patbat_ssite_bati WHERE id_ssite = v_id_actuel;
+			DELETE FROM r_patbat.lk_patbat_ssite_uf WHERE id_ssite = v_id_actuel;
+			DELETE FROM r_patbat.lk_patbat_ssite_local WHERE id_ssite = v_id_actuel;
+
+			-- 2. On recrée les liens Bâtiment
+			-- on récupère les id bati des bâtiments compris dans le ssite
+			INSERT INTO r_patbat.lk_patbat_ssite_bati (id_ssite, id_bati)
+			SELECT v_id_actuel, id_entite 
+			FROM r_patbat.geo_patbat_bati 
+			WHERE ST_Intersects(NEW.geom, geom);
+
+			-- 3. On recrée les liens UF
+			-- on récupère l'uf en partant du lien entre son bati et le ssite
+			INSERT INTO r_patbat.lk_patbat_ssite_uf (id_ssite, id_uf)
+			SELECT v_id_actuel, uf.id_entite 
+			FROM r_patbat.lk_patbat_ssite_bati lk
+			JOIN r_patbat.an_patbat_unite_fonc uf ON uf.id_bati = lk.id_bati
+			WHERE lk.id_ssite = v_id_actuel;
+
+			-- 4. On recrée les liens Local
+			-- on récupère le local en pattant du lien entre son uf et le ssite
+			INSERT INTO r_patbat.lk_patbat_ssite_local (id_ssite, id_local)
+			SELECT v_id_actuel, l.id_entite 
+			FROM r_patbat.lk_patbat_ssite_uf lk
+			JOIN r_patbat.an_patbat_local l ON l.id_uf = lk.id_uf
+			WHERE lk.id_ssite = v_id_actuel;
+		END IF;
+	END IF;
     
-    RETURN NEW;
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    ELSE
+        RETURN NEW;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1118,18 +1194,19 @@ create or replace view r_patbat.geo_v_patbat_bati as
 	b.supdvp,
 	b.supdvp_mesuree,
 	e.categorie,
+	e.sous_categories,
 	e.observ,
 	e.type_etablissement,
 	e.dbstatut,
 	b.nb_etage,
 	b.etat,
+	b.id_site,
 	e.op_sai,
 	e.op_maj,
 	e.dbinsert,
 	e.dbupdate,
 	e.insee,
 	e.commune,
-	e.parcelles,
 	b.geom
 	from r_patbat.an_patbat_entite e
  	join r_patbat.geo_patbat_bati b on e.id_entite = b.id_entite;
@@ -1148,13 +1225,13 @@ COMMENT ON COLUMN r_patbat.geo_v_patbat_bati.type_etablissement IS 'Types d''ét
 COMMENT ON COLUMN r_patbat.geo_v_patbat_bati.dbstatut IS 'Statut du bâtiment (actif ou désactivé)';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_bati.nb_etage IS 'Nombre d''étages du bâtiment';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_bati.etat IS 'État général du bâtiment';
+COMMENT ON COLUMN r_patbat.geo_v_patbat_bati.id_site IS 'Identifiant du site dans lequel se trouve le bâtiment';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_bati.op_sai IS 'Login de la personne ayant saisi le bâtiment';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_bati.op_maj IS 'Login de la personne ayant modifié le bâtiment';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_bati.dbinsert IS 'Date d''insertion du bâtiment';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_bati.dbupdate IS 'Date de mise à jour du bâtiment';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_bati.insee IS 'Code insee du bâtiment';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_bati.commune IS 'Nom de la commune du bâtiment';
-COMMENT ON COLUMN r_patbat.geo_v_patbat_bati.parcelles IS 'Parcelles cadastarles du bâtiment';
 COMMENT ON COLUMN r_patbat.geo_v_patbat_bati.geom IS 'Géométrie du bâtiment';
 
 CREATE OR REPLACE FUNCTION r_patbat.ft_m_gestion_v_bati()
@@ -1166,6 +1243,7 @@ DECLARE
 	v_nom_usage_site varchar; -- le nom d'usage du site dans lequel est compris le bâtiment 
 	v_code_ref_site varchar; -- code de référence du site dans lequel est compris le bâtiment
 	v_code_ref_id varchar; -- id du bati a utiliser dans le code_ref
+	v_id_actuel int; -- variable dans laquelle on stocke l'id_entite qu'on crée
 	r RECORD; -- variable de boucle 
 BEGIN
 
@@ -1192,14 +1270,19 @@ BEGIN
 	END IF;
 
 	-- on vérifie si le bâtiment actif ne se superpose pas avec un autre bâtiment actif
-	IF EXISTS(SELECT 1 FROM r_patbat.geo_patbat_bati b 
+FOR r in (SELECT b.geom FROM r_patbat.geo_patbat_bati b 
 			  JOIN r_patbat.an_patbat_entite e ON b.id_entite = e.id_entite
 			  WHERE b.id_entite is distinct from NEW.id_entite 
 			  AND e.dbstatut IS DISTINCT FROM '11' 
 			  AND NEW.dbstatut IS DISTINCT FROM '11' 
-				AND ST_Intersects(ST_Buffer(NEW.geom, -0.1), b.geom)
-              and (ST_Intersects(NEW.geom,b.geom) and not ST_Touches(NEW.geom,b.geom))) THEN
-		RAISE EXCEPTION '<span style="color:red;"><b>Le bâtiment se superpose avec un autre</b></span><br><br>';
+              and ST_Intersects(NEW.geom,b.geom) and not ST_Touches(NEW.geom,b.geom)) 
+	LOOP
+		-- on soustrait de la géométrie du bâtiment la partie qui est dans un autre bâtiment
+		NEW.geom = ST_Difference(NEW.geom,r.geom);
+	END LOOP;
+
+	IF ST_IsEmpty(NEW.geom) OR NEW.geom IS NULL THEN
+		RAISE EXCEPTION '<span style="color:red;"><b>Le bâtiment est entièrement compris dans un autre bâtiment existant</b></span><br><br>';
 	END IF;
 
 	-- si la supdvp est NULL mais que supdvp_mesuree set cochée alors on interdit la saisie car impossible
@@ -1230,10 +1313,10 @@ BEGIN
 		end if; 		
 
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
-            niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut, op_sai, dbinsert
+            niveau,ref_code, nom_usage, nom_officiel, categorie, sous_categories, observ, type_etablissement, dbstatut, op_sai, dbinsert
         )
         VALUES (
-            'Bâtiment', v_code_ref_site || '-B' || v_code_ref_id , NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP
+            'Bâtiment', v_code_ref_site || '-B' || v_code_ref_id , NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.sous_categories, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
@@ -1262,6 +1345,7 @@ BEGIN
             nom_usage = NEW.nom_usage,
             nom_officiel = NEW.nom_officiel,
             categorie = NEW.categorie,
+			sous_categories = NEW.sous_categories,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement,
 			dbstatut = NEW.dbstatut, 
@@ -1287,41 +1371,74 @@ BEGIN
             PERFORM r_patbat.ft_r_maj_supsol_ssite(r.id_entite); 
         END LOOP;
 
-		-- Si on change la géométrie, alors on refait les liens avec site et ssites des batiments,uf et locaux 
-		IF NEW.geom != OLD.geom THEN
+
+
+	-- si l'opération réalisée sur la vue est un DELETE
+    ELSIF TG_OP = 'DELETE' THEN
+		
+		IF OLD.dbstatut = '11' THEN -- si le bati est désactivé (dbstatut = '11') alors		
+
+			-- delete des locaux et uf dans le bati
+			DELETE FROM r_patbat.an_v_patbat_local WHERE OLD.id_entite = (SELECT id_bati FROM r_patbat.lk_patbat_bati_local);
+			DELETE FROM r_patbat.an_v_patbat_unite_fonc WHERE id_bati = OLD.id_entite;
+
+			DELETE FROM r_patbat.geo_patbat_bati WHERE id_entite = OLD.id_entite; -- delete le bati de la table geo_bati
+        	DELETE FROM r_patbat.an_patbat_entite WHERE id_entite = OLD.id_entite; -- delete le bati de la table entité
+
+		ELSE -- si le bati est activé (dbstatut = '10')
+
+			-- desactivation des locaux et uf du bati qui ne sont pas déja désactivés
+			DELETE FROM r_patbat.an_v_patbat_local WHERE OLD.id_entite = (SELECT id_bati FROM r_patbat.lk_patbat_bati_local) and dbstatut is distinct from '11';
+			DELETE FROM r_patbat.an_v_patbat_unite_fonc WHERE OLD.id_entite = (SELECT id_bati FROM r_patbat.lk_patbat_bati_uf)and dbstatut is distinct from '11';
+
+			UPDATE r_patbat.an_patbat_entite -- on désactive le bâtiment (dbstatut = '11')
+			SET dbstatut = '11' 
+			WHERE id_entite = OLD.id_entite;
+		END IF; 
+		--on recalcule le total surface sol des bâtimetns dans l'ancien sous-site ou se trouvait le bâtiment 
+		FOR r IN (SELECT id_entite FROM r_patbat.geo_patbat_ssite WHERE ST_Intersects(OLD.geom, geom)) LOOP
+            PERFORM r_patbat.ft_r_maj_supsol_ssite(r.id_entite);
+        END LOOP;
+    END IF;
+
+-- Si on change la géométrie ou qu'on vient d'insérer le bati, alors on refait les liens avec site et ssites des batiments,uf et locaux 
+	IF TG_OP IN ('INSERT', 'UPDATE') THEN
+		IF TG_OP = 'INSERT' OR NEW.geom != OLD.geom THEN
+			v_id_actuel := COALESCE(nouvel_id, NEW.id_entite);
+
 			-- 1. On détruit tous les liens du Bâtiment vers le HAUT (Site et SSite)
-			DELETE FROM r_patbat.lk_patbat_site_bati WHERE id_bati = NEW.id_entite;
-			DELETE FROM r_patbat.lk_patbat_ssite_bati WHERE id_bati = NEW.id_entite;
+			DELETE FROM r_patbat.lk_patbat_site_bati WHERE id_bati = v_id_actuel;
+			DELETE FROM r_patbat.lk_patbat_ssite_bati WHERE id_bati = v_id_actuel;
 			
 			-- 2. On détruit les liens des enfants (UFs et Locaux) vers le HAUT (Site et SSite)
 			-- on récupère les id_entite des uf qui ont pour id_bati le batiment qu'on vient de modifier et on supprime leurs lien avec site et ssite
-			DELETE FROM r_patbat.lk_patbat_site_uf WHERE id_uf IN (SELECT id_entite FROM r_patbat.an_patbat_unite_fonc WHERE id_bati = NEW.id_entite);
-			DELETE FROM r_patbat.lk_patbat_ssite_uf WHERE id_uf IN (SELECT id_entite FROM r_patbat.an_patbat_unite_fonc WHERE id_bati = NEW.id_entite);
+			DELETE FROM r_patbat.lk_patbat_site_uf WHERE id_uf IN (SELECT id_entite FROM r_patbat.an_patbat_unite_fonc WHERE id_bati = v_id_actuel);
+			DELETE FROM r_patbat.lk_patbat_ssite_uf WHERE id_uf IN (SELECT id_entite FROM r_patbat.an_patbat_unite_fonc WHERE id_bati = v_id_actuel);
+
 			
 			-- on récupère les id_entite des locaux qui ont pour id_uf, une uf compris dans le bâtiment qu'on vient de modifier, et on supprime leurs lien avec site et ssite
-			DELETE FROM r_patbat.lk_patbat_site_local WHERE id_local IN (SELECT l.id_entite FROM r_patbat.an_patbat_local l JOIN r_patbat.an_patbat_unite_fonc uf ON l.id_uf = uf.id_entite WHERE uf.id_bati = NEW.id_entite);
-			DELETE FROM r_patbat.lk_patbat_ssite_local WHERE id_local IN (SELECT l.id_entite FROM r_patbat.an_patbat_local l JOIN r_patbat.an_patbat_unite_fonc uf ON l.id_uf = uf.id_entite WHERE uf.id_bati = NEW.id_entite);
+			DELETE FROM r_patbat.lk_patbat_site_local WHERE id_local IN (SELECT l.id_entite FROM r_patbat.an_patbat_local l JOIN r_patbat.an_patbat_unite_fonc uf ON l.id_uf = uf.id_entite WHERE uf.id_bati = v_id_actuel);
+			DELETE FROM r_patbat.lk_patbat_ssite_local WHERE id_local IN (SELECT l.id_entite FROM r_patbat.an_patbat_local l JOIN r_patbat.an_patbat_unite_fonc uf ON l.id_uf = uf.id_entite WHERE uf.id_bati = v_id_actuel);
 
 			-- 3. On recrée les liens Bâtiment
 			-- on récupère l'id_site dans lequel est le bâtiment, et on crée le lien entre ce site et le bâtiment qu'on vient de modifier
-			INSERT INTO r_patbat.lk_patbat_site_bati (id_site, id_bati) 
-			SELECT id_entite, NEW.id_entite FROM r_patbat.geo_patbat_site WHERE ST_Intersects(NEW.geom, geom);
+			INSERT INTO r_patbat.lk_patbat_site_bati (id_site, id_bati) VALUES (v_id_site, v_id_actuel);
 			
 			-- on récupère l'(les) id_ssite dans lequel est le bâtiment, et on crée le(s) lien(s) entre ce(s) ssite et le bâtiment qu'on vient de modifier 
 			INSERT INTO r_patbat.lk_patbat_ssite_bati (id_ssite, id_bati)
-			SELECT id_entite, NEW.id_entite FROM r_patbat.geo_patbat_ssite WHERE ST_Intersects(NEW.geom, geom);
+			SELECT id_entite, v_id_actuel FROM r_patbat.geo_patbat_ssite WHERE ST_Intersects(NEW.geom, geom);
 
 			-- 4. On recrée les liens UF
 			-- on récupère les id_entite des uf compris dans le site qu'on vient de modifer, et on crée le lien entre elle et le site dans lequel est compris le bâtiment
 			INSERT INTO r_patbat.lk_patbat_site_uf (id_site, id_uf)
-			SELECT v_id_site, id_entite FROM r_patbat.an_patbat_unite_fonc WHERE id_bati = NEW.id_entite;
+			SELECT v_id_site, id_entite FROM r_patbat.an_patbat_unite_fonc WHERE id_bati = v_id_actuel;
 			
 			-- pour chaque lien qu'il existe entre le bâtiment qu'on vient de modifier et un ssite, on crée un lien entre ce ssite et les uf comprises dans le bâtiment modifié
 			INSERT INTO r_patbat.lk_patbat_ssite_uf (id_ssite, id_uf)
 			SELECT lk.id_ssite, uf.id_entite 
 			FROM r_patbat.lk_patbat_ssite_bati lk
 			JOIN r_patbat.an_patbat_unite_fonc uf ON uf.id_bati = lk.id_bati
-			WHERE lk.id_bati = NEW.id_entite;
+			WHERE lk.id_bati = v_id_actuel;
 
 			-- 5. On recrée les liens Local
 			-- on récupère les locaux présents dans les uf du bâtiment qu'on vient de modifier, et on crée un lien entre ces locaux et le site dans lequel est le bâtiment
@@ -1329,7 +1446,7 @@ BEGIN
 			SELECT v_id_site, l.id_entite 
 			FROM r_patbat.an_patbat_local l 
 			JOIN r_patbat.an_patbat_unite_fonc uf ON l.id_uf = uf.id_entite 
-			WHERE uf.id_bati = NEW.id_entite;
+			WHERE uf.id_bati = v_id_actuel;
 
 			-- pour chaque lien qu'il existe entre le bâtiment dans lequel est compris le local et un ssite, on crée un lien entre le local et ce ssite
 			INSERT INTO r_patbat.lk_patbat_ssite_local (id_ssite, id_local)
@@ -1337,28 +1454,9 @@ BEGIN
 			FROM r_patbat.lk_patbat_ssite_bati lk
 			JOIN r_patbat.an_patbat_unite_fonc uf ON uf.id_bati = lk.id_bati
 			JOIN r_patbat.an_patbat_local l ON l.id_uf = uf.id_entite
-			WHERE lk.id_bati = NEW.id_entite;
+			WHERE lk.id_bati = v_id_actuel;
 		END IF;
-
-	-- si l'opération réalisée sur la vue est un DELETE
-    ELSIF TG_OP = 'DELETE' THEN
-		
-		IF OLD.dbstatut = '11' THEN -- si le bâtiment est désactivé (dbstatut = '11') alors
-			DELETE FROM r_patbat.geo_patbat_bati WHERE id_entite = OLD.id_entite; -- delete le bâtiment de la table geo_bati
-        	DELETE FROM r_patbat.an_patbat_entite WHERE id_entite = OLD.id_entite; -- delete le bâtiment de la table entité
-		
-		ELSE -- si le bâtiment est activé (dbstatut = '10')
-			UPDATE r_patbat.an_patbat_entite -- on désactive le bâtiment (dbstatut = '11')
-			SET dbstatut = '11' 
-			WHERE id_entite = OLD.id_entite;
 		END IF;
-
-		--on recalcule le total surface sol des bâtimetns dans l'ancien sous-site ou se trouvait le bâtiment 
-		FOR r IN (SELECT id_entite FROM r_patbat.geo_patbat_ssite WHERE ST_Intersects(OLD.geom, geom)) LOOP
-            PERFORM r_patbat.ft_r_maj_supsol_ssite(r.id_entite);
-        END LOOP;
-    END IF;
-
 
 	-- mise à jour de la supsol  du site, en additionnant les supsols des bâitments actifs compris dans le site
 		UPDATE r_patbat.geo_patbat_site
@@ -1382,9 +1480,6 @@ BEGIN
 
 		else -- sinon, on additionne la supdvp des bâtiments compris dans le site, si tout les bâtiments ont une surface mesurée, alors on dit que supdpv_tot_bati est mesurée (pour le site)
 
-
-
-
 			-- tout les batis ont une surface dvp mesurée -> on cacule le total des supdvp et on la met dans le site
 			UPDATE r_patbat.geo_patbat_site
 			-- calcul de la superficie
@@ -1403,10 +1498,12 @@ BEGIN
 			end if; 
 
 		IF TG_OP = 'DELETE' THEN
-        RETURN OLD;
-    ELSE
-        RETURN NEW;
-    END IF;
+			RETURN OLD;
+		ELSE 
+			RETURN NEW;
+
+		END IF;		
+
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1431,6 +1528,7 @@ create or replace view r_patbat.an_v_patbat_unite_fonc as
 	uf.supdvp,
 	uf.supdvp_mesuree,
 	e.categorie,
+	e.sous_categories,
 	e.observ,
 	e.type_etablissement,
 	e.dbstatut,
@@ -1513,10 +1611,10 @@ BEGIN
    	 	RETURNING nb_uf INTO v_code_ref_id;
 
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
-            niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut, op_sai, dbinsert, insee, commune 
+            niveau,ref_code, nom_usage, nom_officiel, categorie, sous_categories, observ, type_etablissement, dbstatut, op_sai, dbinsert, insee, commune 
         )
         VALUES (
-            'Unité', v_code_ref_bati || '-UF' || v_code_ref_id , NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP, v_insee_bati, v_commune_bati
+            'Unité', v_code_ref_bati || '-UF' || v_code_ref_id , NEW.nom_usage, NEW.nom_officiel, NEW.categorie, NEW.sous_categories, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP, v_insee_bati, v_commune_bati
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
@@ -1551,6 +1649,7 @@ BEGIN
             nom_usage = NEW.nom_usage,
             nom_officiel = NEW.nom_officiel,
             categorie = NEW.categorie,
+			sous_categories = NEW.sous_categories,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement,
 			dbstatut = NEW.dbstatut,
@@ -1570,10 +1669,16 @@ BEGIN
     ELSIF TG_OP = 'DELETE' THEN
 		
 		IF OLD.dbstatut = '11' THEN -- si l'unité fonctionnelle est désactivée (dbstatut = '11') alors
+
+			DELETE FROM r_patbat.an_v_patbat_local WHERE OLD.id_entite = (SELECT id_uf FROM r_patbat.lk_patbat_uf_local); -- on delete les locaux compris dans l'uf
+
 			DELETE FROM r_patbat.an_patbat_unite_fonc WHERE id_entite = OLD.id_entite; -- delete l'unité fonctionnelle de la table an_unite_fonc
         	DELETE FROM r_patbat.an_patbat_entite WHERE id_entite = OLD.id_entite; -- delete l'unité fonctionnelle de la table entité
 		
 		ELSE -- si l'unité fonctionnelle est activée (dbstatut = '10')
+
+			DELETE FROM r_patbat.an_v_patbat_local WHERE OLD.id_entite = (SELECT id_uf FROM r_patbat.lk_patbat_uf_local) and dbstatut is distinct from '11'; -- on désactive les locaux qui ne sont pas encore désactivés
+
 			UPDATE r_patbat.an_patbat_entite -- on désactive l'unité fonctionnelle (dbstatut = '11')
 			SET dbstatut = '11' 
 			WHERE id_entite = OLD.id_entite;
@@ -1608,6 +1713,7 @@ create or replace view r_patbat.an_v_patbat_local as
 	l.supdvp,
 	l.supdvp_mesuree,
 	e.categorie,
+	e.sous_categories,
 	e.observ,
 	e.type_etablissement,
 	e.dbstatut,
@@ -1690,10 +1796,10 @@ BEGIN
     	RETURNING nb_local INTO v_code_ref_id;
 
         INSERT INTO r_patbat.an_patbat_entite ( -- on insère les données de la vue dans la table an_entite
-            niveau,ref_code, nom_usage, nom_officiel, categorie, observ, type_etablissement, dbstatut, op_sai, dbinsert, insee, commune
+            niveau,ref_code, nom_usage, nom_officiel, categorie, sous_categories, observ, type_etablissement, dbstatut, op_sai, dbinsert, insee, commune
         )
         VALUES (
-            'Local',v_code_ref_uf || '-L' || v_code_ref_id , NEW.nom_usage, NEW.nom_officiel,  NEW.categorie, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP, v_insee_uf, v_commune_uf
+            'Local',v_code_ref_uf || '-L' || v_code_ref_id , NEW.nom_usage, NEW.nom_officiel,  NEW.categorie, NEW.sous_categories, NEW.observ, NEW.type_etablissement, NEW.dbstatut, NEW.op_sai, CURRENT_TIMESTAMP, v_insee_uf, v_commune_uf
         )
         RETURNING id_entite INTO nouvel_id; -- on stocke l'id qu'on vient de créer dans la variable nouvel_id
 
@@ -1738,6 +1844,7 @@ BEGIN
             nom_usage = NEW.nom_usage,
             nom_officiel = NEW.nom_officiel,
             categorie = NEW.categorie,
+			sous_categories = NEW.sous_categories,
             observ = NEW.observ,
 			type_etablissement = NEW.type_etablissement,
 			dbstatut = NEW.dbstatut, 
@@ -1760,7 +1867,7 @@ BEGIN
 			DELETE FROM r_patbat.an_patbat_local WHERE id_entite = OLD.id_entite; -- delete le local de la table an_local
         	DELETE FROM r_patbat.an_patbat_entite WHERE id_entite = OLD.id_entite; -- delete le local de la table entité
 		
-		ELSE -- si le local est activée (dbstatut = '10')
+		ELSE -- si le local est activé (dbstatut = '10')
 			UPDATE r_patbat.an_patbat_entite -- on désactive le local (dbstatut = '11')
 			SET dbstatut = '11' 
 			WHERE id_entite = OLD.id_entite;
@@ -1782,6 +1889,127 @@ INSTEAD OF INSERT OR UPDATE OR DELETE ON r_patbat.an_v_patbat_local
 FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_m_gestion_v_local();
 
 COMMENT ON TRIGGER t_t1_gestion_v_local ON r_patbat.an_v_patbat_local IS 'Trigger se déclanchant a l''insert, update, ou delete de la vue de regroupement de données entre les tables entité et local, appelant la fonction pour réaliser ces opérations directement dans les tables ';
+
+-----------------------------------------------------------------------------------------
+--                                   VUES DE LIENS                                     --
+-----------------------------------------------------------------------------------------
+
+-- Lien entre PDL et Site
+CREATE OR REPLACE VIEW r_patbat.geo_v_lien_pdl_site AS
+SELECT 
+    lk.gid AS id_lien,
+    p.id_pdl,
+    s.id_entite,
+    p.code_ref,
+    ST_MakeLine(p.geom, ST_PointOnSurface(s.geom))::geometry(LineString, 2154) AS geom
+FROM r_patbat.geo_patbat_pdl p
+JOIN r_patbat.lk_patbat_pdl lk ON p.id_pdl = lk.id_pdl
+JOIN r_patbat.geo_v_patbat_site s ON lk.id_entite = s.id_entite; 
+
+COMMENT ON VIEW r_patbat.geo_v_lien_pdl_site IS 'Vue de création d''un lien entre un pdl et un site, sous forme d''une ligne géométrique';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_site.id_lien IS 'Identifiant unique du lien';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_site.id_pdl IS 'Identifiant du pdl';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_site.id_entite IS 'Identifiant du site';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_site.code_ref IS 'Code de référence du pdl';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_site.geom IS 'Géométrie ligne, représente le lien entre pdl et site';
+
+-- Lien entre PDL et Sous-site
+CREATE OR REPLACE VIEW r_patbat.geo_v_lien_pdl_ssite AS
+SELECT 
+    lk.gid AS id_lien,
+    p.id_pdl,
+    ss.id_entite,
+    p.code_ref,
+    ST_MakeLine(p.geom, ST_PointOnSurface(ss.geom))::geometry(LineString, 2154) AS geom
+FROM r_patbat.geo_patbat_pdl p
+JOIN r_patbat.lk_patbat_pdl lk ON p.id_pdl = lk.id_pdl
+JOIN r_patbat.geo_v_patbat_ssite ss ON lk.id_entite = ss.id_entite;
+
+COMMENT ON VIEW r_patbat.geo_v_lien_pdl_ssite IS 'Vue de création d''un lien entre un pdl et un sous-site, sous forme d''une ligne géométrique';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_ssite.id_lien IS 'Identifiant unique du lien';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_ssite.id_pdl IS 'Identifiant du pdl';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_ssite.id_entite IS 'Identifiant du sous-site';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_ssite.code_ref IS 'Code de référence du pdl';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_ssite.geom IS 'Géométrie ligne, représente le lien entre pdl et sous-site';
+
+-----------------------------------------------------------------------------------------
+--                VUE DE LIEN UNIFIÉE (INTÉRIEUR DU BÂTIMENT)                          --
+-----------------------------------------------------------------------------------------
+
+CREATE OR REPLACE VIEW r_patbat.geo_v_lien_pdl_interieur AS
+WITH liens_bruts AS (
+    -- 1. Récupération des liens Bâtiment
+    SELECT 
+        p.id_pdl, p.code_ref, p.geom AS geom_pdl,
+        b.id_entite AS id_bati, b.geom AS geom_bati,
+        'B' AS type_entite
+    FROM r_patbat.geo_patbat_pdl p
+    JOIN r_patbat.lk_patbat_pdl lk ON p.id_pdl = lk.id_pdl
+    JOIN r_patbat.geo_v_patbat_bati b ON lk.id_entite = b.id_entite
+    
+    UNION ALL
+    
+    -- 2. Récupération des liens UF
+    SELECT 
+        p.id_pdl, p.code_ref, p.geom AS geom_pdl,
+        b.id_entite AS id_bati, b.geom AS geom_bati,
+        'UF' AS type_entite
+    FROM r_patbat.geo_patbat_pdl p
+    JOIN r_patbat.lk_patbat_pdl lk ON p.id_pdl = lk.id_pdl
+    JOIN r_patbat.an_v_patbat_unite_fonc u ON lk.id_entite = u.id_entite
+    JOIN r_patbat.geo_v_patbat_bati b ON u.id_bati = b.id_entite
+    
+    UNION ALL
+    
+    -- 3. Récupération des liens Local
+    SELECT 
+        p.id_pdl, p.code_ref, p.geom AS geom_pdl,
+        b.id_entite AS id_bati, b.geom AS geom_bati,
+        'L' AS type_entite
+    FROM r_patbat.geo_patbat_pdl p
+    JOIN r_patbat.lk_patbat_pdl lk ON p.id_pdl = lk.id_pdl
+    JOIN r_patbat.an_v_patbat_local loc ON lk.id_entite = loc.id_entite
+    JOIN r_patbat.an_v_patbat_unite_fonc u ON loc.id_uf = u.id_entite
+    JOIN r_patbat.geo_v_patbat_bati b ON u.id_bati = b.id_entite
+)
+SELECT 
+    -- Création d'un identifiant entier unique 
+    ((id_pdl * 100000) + id_bati)::int4 AS id_lien,
+    id_pdl,
+    code_ref,
+    id_bati,
+    -- Concaténation pour l'étiquette (ex: "B + L")
+    string_agg(type_entite, ' + ') AS etiquette_fusionnee,
+    ST_MakeLine(geom_pdl, ST_PointOnSurface(geom_bati))::geometry(LineString, 2154) AS geom
+FROM liens_bruts
+GROUP BY -- si on trouve plusieurs lignes qui ont le meme pdl, le meme bâti et la même géométrie, alors on les regroupe, et on change le type_entite en fusion des lignes
+    id_pdl, 
+    code_ref, 
+    geom_pdl,
+    id_bati, 
+    geom_bati;
+
+COMMENT ON VIEW r_patbat.geo_v_lien_pdl_interieur IS 'Vue de création d''un lien unifié entre un pdl et les entités internes (Bâtiment, UF, Local) partageant la même géométrie cible';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_interieur.id_lien IS 'Identifiant unique du lien généré par hashage';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_interieur.id_pdl IS 'Identifiant du pdl';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_interieur.code_ref IS 'Code de référence du pdl';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_interieur.id_bati IS 'Identifiant du bâtiment centralisant la géométrie';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_interieur.etiquette_fusionnee IS 'Texte concaténé des entités liées au pdl (ex: B + L) pour l''affichage cartographique';
+COMMENT ON COLUMN r_patbat.geo_v_lien_pdl_interieur.geom IS 'Géométrie ligne, représente le lien entre pdl et le bâtiment';
+
+-- Lien entre Sous-compteur et Compteur principal
+CREATE OR REPLACE VIEW r_patbat.geo_v_lien_sous_compteur_parent AS
+SELECT 
+    p_enfant.id_pdl AS id_lien,
+    p_enfant.id_pdl AS id_sous_compteur,
+    p_enfant.code_ref AS ref_sous_compteur,
+    p_parent.id_pdl AS id_compteur_principal,
+    p_parent.code_ref AS ref_compteur_principal,
+    ST_MakeLine(p_enfant.geom, p_parent.geom)::geometry(LineString, 2154) AS geom
+FROM r_patbat.geo_patbat_pdl p_enfant
+JOIN r_patbat.geo_patbat_pdl p_parent ON p_enfant.compteur_parent = p_parent.code_ref
+WHERE p_enfant.compteur_parent IS NOT NULL;
+
 -----------------------------------------------------------------------------------------
 --																					   --
 --							      FONCTIONS ET TRIGGERS					               --
@@ -1839,42 +2067,54 @@ COMMENT ON TRIGGER t_t3_insee_commune ON r_patbat.geo_patbat_bati IS 'Trigger à
 --                                       PARCELLES                                     --
 -----------------------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION ft_r_parcelles()
+CREATE OR REPLACE FUNCTION ft_r_parcelles_bati()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Mise à jour de la table entité avec un texte contenant toutes les parcelles intersectées, séparées par un ;
-    UPDATE r_patbat.an_patbat_entite  
-    SET parcelles = ( 
-        SELECT string_agg(geo_parcelle, ';') 
-        FROM r_cadastre.geo_parcelle p 
-        WHERE ST_Intersects(NEW.geom, p.geom) and not ST_Touches (NEW.geom, p.geom)
-    )
-    WHERE id_entite = NEW.id_entite;
+
+	INSERT INTO r_patbat.an_patbat_parcelle (id_entite,insee,commune,geo_parcelle,section,numero)
+	SELECT NEW.id_entite, insee, commune, geo_parcelle, SUBSTRING(geo_parcelle FROM '([A-Za-z]{1,2})\d{4}$'), RIGHT(geo_parcelle,4)::integer::varchar
+	FROM r_cadastre.geo_parcelle p 
+	WHERE ST_Intersects(NEW.geom, p.geom) and not ST_Touches (NEW.geom, p.geom);
+
+    RETURN NEW; 
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION ft_r_parcelles_bati IS 'Fonction récupérant un tableau contenant les numéros de parcelles cadastrales qui intersectent l''entité';
+
+CREATE OR REPLACE FUNCTION ft_r_parcelles_site_ssite()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO r_patbat.an_patbat_parcelle(id_entite,insee,commune,geo_parcelle,section,numero)
+	SELECT NEW.id_entite, insee, commune, geo_parcelle, SUBSTRING(geo_parcelle FROM '([A-Za-z]{1,2})\d{4}$'), RIGHT(geo_parcelle,4)::integer::varchar
+	FROM r_cadastre.geo_parcelle p 
+    WHERE ST_Intersects(ST_Buffer(NEW.geom,-3), p.geom); -- rajoute un buffer négatif de 3m
     
     RETURN NEW; 
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION ft_r_parcelles IS 'Fonction récupérant un tableau contenant les numéros de parcelles cadastrales dans lesquelles se trouvent l''entité';
+COMMENT ON FUNCTION ft_r_parcelles_site_ssite IS 'Fonction récupérant un tableau contenant les numéros de parcelles cadastrales qui intersectent un buffer négatif de l''entité';
+
 
 CREATE TRIGGER t_t3_parcelles 
 AFTER INSERT OR UPDATE OF geom ON r_patbat.geo_patbat_site
 FOR EACH ROW 
-EXECUTE FUNCTION ft_r_parcelles();
+EXECUTE FUNCTION ft_r_parcelles_site_ssite();
 
 COMMENT ON TRIGGER t_t3_parcelles ON r_patbat.geo_patbat_site IS 'Trigger récupérant les parcelles dans lesquelles se trouvent le site après un insert ou un update';
 
 CREATE TRIGGER t_t3_parcelles 
 AFTER INSERT OR UPDATE OF geom ON r_patbat.geo_patbat_ssite
 FOR EACH ROW 
-EXECUTE FUNCTION ft_r_parcelles();   
+EXECUTE FUNCTION ft_r_parcelles_site_ssite();   
 
 COMMENT ON TRIGGER t_t3_parcelles ON r_patbat.geo_patbat_ssite IS 'Trigger récupérant les parcelles dans lesquelles se trouvent le sous-site après un insert ou un update';
 
 CREATE TRIGGER t_t3_parcelles 
 AFTER INSERT OR UPDATE OF geom ON r_patbat.geo_patbat_bati
 FOR EACH ROW 
-EXECUTE FUNCTION ft_r_parcelles();
+EXECUTE FUNCTION ft_r_parcelles_bati();
 
 COMMENT ON TRIGGER t_t3_parcelles ON r_patbat.geo_patbat_bati IS 'Trigger récupérant les parcelles dans lesquelles se trouvent le bâtiment après un insert ou un update';
 
@@ -1897,10 +2137,39 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION r_patbat.ft_r_nettoyage_qgis_multiselect IS 'Nettoie le texte envoyé par QGIS lors des sélections multiples (transforme {"A","B"} en A;B)';
 
 -- Trigger sur la table entité
-CREATE TRIGGER t_nettoyage_qgis_multiselect
+CREATE TRIGGER t_t_nettoyage_qgis_multiselect
 BEFORE INSERT OR UPDATE ON r_patbat.an_patbat_entite
 FOR EACH ROW
 EXECUTE FUNCTION r_patbat.ft_r_nettoyage_qgis_multiselect();
+
+
+-----------------------------------------------------------------------------------------
+--                                      SOUS-CATEGORIES                                --
+-----------------------------------------------------------------------------------------
+
+-- fonction de nettoyage des sous-catégories
+CREATE OR REPLACE FUNCTION r_patbat.ft_r_nettoyage_sous_categories()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Si l'attribut catégorie a changé et n'était pas null avant, on enlève les sous-catégories
+    IF NEW.categorie is distinct from OLD.categorie and OLD.categorie is distinct from null then
+	-- on découpe la chaine de caractère en array, on ne sélectionne que les valeurs de sous-catégories reliées à la nouvelle catégorie, et on reconstitue la chaine de caractère
+		SELECT string_agg(code,';') INTO NEW.sous_categories
+		FROM r_patbat.lt_patbat_sous_cat
+		WHERE code_cate = NEW.categorie and
+		code = ANY(string_to_array(NEW.sous_categories,';'));
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION r_patbat.ft_r_nettoyage_sous_categories IS 'Nettoie les sous-catégories lorsque l''utilisateur change la catégorie principale';
+
+-- Trigger sur la table entité
+CREATE OR REPLACE TRIGGER t_t_nettoyage_sous_categories
+BEFORE INSERT OR UPDATE ON r_patbat.an_patbat_entite
+FOR EACH ROW
+EXECUTE FUNCTION r_patbat.ft_r_nettoyage_sous_categories();
 
 -----------------------------------------------------------------------------------------
 --                              CALCUL SUPERFICIE SOL SSITE                            --
@@ -2024,14 +2293,35 @@ FOR EACH ROW EXECUTE FUNCTION r_patbat.ft_r_liaison_adresse_auto();
 
 CREATE OR REPLACE FUNCTION r_patbat.ft_r_verif_type_pdl()
 RETURNS TRIGGER AS $$
-begin
+begin	
+	
+	--aucun compteur pricipal présent
+	IF NOT EXISTS (SELECT 1 FROM r_patbat.geo_patbat_pdl WHERE type_compteur = '10') and NEW.type_compteur = '20' then 
+		RAISE EXCEPTION '<span style="color:red;"><b>Aucun compteur principal n''est saisi, veuillez en saisir un avant de saisir un sous-compteur.</b></span><br><br>';
+	end if; 
+
+	-- si on passe le compteur en compteur parent, alors on remet a null son compteur parent
+	IF TG_OP = 'UPDATE' AND NEW.type_compteur = '10' AND OLD.type_compteur = '20' then 
+		NEW.compteur_parent = null;
+	end if; 
+
 	-- si le pdl est un compteur parent lui même mais qu'un compteur parent est rempli
 	IF NEW.type_compteur = '10' and NEW.compteur_parent is not null then 
 		RAISE EXCEPTION '<span style="color:red;"><b>Un compteur principal ne peut pas avoir de compteur parent.</b></span><br><br>';
+
 	-- si le pdl est un sous-compteur mais qu'aucun compteur parent n'est rempli
 	ELSIF NEW.type_compteur = '20' and NEW.compteur_parent is null then 
 		RAISE EXCEPTION '<span style="color:red;"><b>Un sous-compteur doit avoir un compteur parent.</b></span><br><br>';
+
+	-- si le pdl s'inscris lui-même en temps que parent
+	ELSIF NEW.type_compteur = '20' and NEW.compteur_parent = NEW.code_ref then 
+		RAISE EXCEPTION '<span style="color:red;"><b>Le compteur parent ne peut pas être le compteur lui-même.</b></span><br><br>';
+
+	-- si on passe un compteur principal en sous-compteur alors que il reste des sous-compteur lié a lui
+	ELSIF NEW.type_compteur = '20' and OLD.type_compteur = '10' and EXISTS(SELECT 1 FROM r_patbat.geo_patbat_pdl WHERE compteur_parent = NEW.code_ref) then 
+		RAISE EXCEPTION '<span style="color:red;"><b>Il existe des sous-compteurs liés au compteur que vous essayez de passer en sous-compteur, veuillez d''abord changer ces liens </b></span><br><br>';
 	end if; 
+
 	RETURN NEW;
 
 end;
