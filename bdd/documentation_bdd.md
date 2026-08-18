@@ -209,8 +209,6 @@ erDiagram
     an_patbat_entite ||--o{ an_patbat_parcelle : id_entite
 ```
 
-
-
 ## Résumé fonctionnel
 
 Le modèle de données est composé d'une table principale `an_patbat_entite` qui comporte les informations communes aux 5 niveaux du référentiel et crée l'identifiant unique `id_entite` pour chaque entité.
