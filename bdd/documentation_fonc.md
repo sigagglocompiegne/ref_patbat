@@ -27,6 +27,7 @@ flowchart TD
     B --> UF
     UF --> L
 ```
+---
 ## 2. Les informations transverses liées à une entité
 
 Quel que soit son niveau, une entité peut se voir rattacher les objets suivants :
