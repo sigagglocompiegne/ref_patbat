@@ -224,7 +224,7 @@ Chaque niveau a aussi une table spécifique qui réutilise l'identifiant `id_ent
 
 Les données extérieures aux niveaux (`médias`, `contacts`...) sont stockées dans des tables extérieures détaillées ci-dessous, elles réutilisent l'`id_entite`.
 
-Les tables sont modifiées via des vues regroupant les informations de la table principale ainsi que des tables spécifique au niveau, ces vues sont accompagnées d'un trigger 'instead of' ainsi que d'une fonction qui modifies les données des tables.
+Les tables sont modifiées via des vues regroupant les informations de la table principale ainsi que des tables spécifique au niveau, ces vues sont accompagnées d'un trigger 'instead of' ainsi que d'une fonction qui modifie les données des tables.
 
 ## Dépendances
 
