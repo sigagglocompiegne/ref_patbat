@@ -11,7 +11,7 @@ Le patrimoine est organisé en **5 niveaux emboîtés** :
 | **Unité fonctionnelle** | Une partie fonctionnelle d'un bâtiment (ex. un étage, une aile) | Non |
 | **Local** | Une pièce ou un espace au sein d'une unité fonctionnelle - optionnel | Non |
 
-Chaque niveau hérite automatiquement d'un **code de référence** construit à partir de celui du niveau parent (voir §3.1) :
+Chaque niveau hérite automatiquement d'un **code de référence** construit à partir de celui du niveau parent (voir [§3.1](#31-génération-automatique-du-code-de-référence)) :
 
 ```mermaid
 flowchart TD
