@@ -107,7 +107,7 @@ Point important : les compteurs utilisés (`nb_bati`, `nb_ssite`, `nb_uf`, `nb_l
 - La **superficie au sol** (site, sous-site, bâtiment) est calculée automatiquement à partir de la géométrie dessinée.
 - La **superficie au sol totale des bâtiments** d'un site ou d'un sous-site est recalculée automatiquement à chaque ajout, modification ou suppression d'un bâtiment ou site/sous-site.
 - La **superficie développée** (surface de plancher) peut être saisie manuellement par bâtiment/UF/local, avec une case « mesurée » permettant de distinguer une valeur fiable (relevé/plan) d'une valeur estimée.
-- La **superficie développée totale des bâtiments** au niveau du site est calculée automatiquement avec la superficie développée des bâtiments et n'est considéré comme « mesuré » que si **tous** les bâtiments qui le composent ont eux-mêmes une valeur mesurée — le fait que cette superficie totale soit mesurée empêche la saisie manuelle.
+- La **superficie développée totale des bâtiments** au niveau du site est calculée automatiquement avec la superficie développée des bâtiments et n'est considéré comme « mesuré » que si **tous** les bâtiments qui le composent ont eux-mêmes une valeur mesurée — le fait que cette superficie totale soit mesurée empêche la saisie manuelle de celle-ci.
 
 ### 3.5 Nommage automatique
 
