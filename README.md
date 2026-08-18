@@ -23,7 +23,7 @@ D'autres classes sont intégrées pour gérer des informations métiers attaché
 ### Définitions
 
 Classe | Définition | Remarque | Géométrique ? 
---------- | --------- |--------- 
+--------- | --------- |--------- | ----------
 Site | Lieu géographique cohérent, généralement clos, comportant du patrimoine bâti et disposant d’une dénomination usuelle commune (il fait sens commun)  | Il est autant que possible indépendant d’une approche métier, organisationnelle ou administrative afin d'assurer sa stabilité (délimitation, dénomination). | Oui
 Sous-site | Classe optionnelle décrivant un sous-lieu géographique cohérent du patrimoine bâti dans un site | Cette classe permet si nécessaire de segmenter des fractions d'un site | Oui
 Bâtiment | Construction souterraine et/ou au-dessus du sol, ayant pour objectif d'être permanente, pour abriter des humains ou des activités humaines. Un bâtiment possède a minima un accès depuis l’extérieur. Dans la mesure du possible, un bâtiment est distinct d’un autre dès lors qu’il est impossible de circuler entre eux. | La définition est héritée de celle du CNIG à la suite des travaux du projet de Référentiel National des Bâtiments (RNB) | Oui
