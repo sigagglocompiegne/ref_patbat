@@ -20,6 +20,24 @@ Les objectifs poursuivis sont de :
 Le modèle de données decrivant le patrimoine bâti s'organise autour de 3 classes principales et 2 optionnelles.
 D'autres classes sont intégrées pour gérer des informations métiers attachées au référentiel (ex : classe pour gérer les contacts)
 
+```mermaid
+flowchart TD
+    SITE["Site"]
+    SSITE["Sous-site"]
+    BATI["Bâtiment"]
+    UF["Unité fonctionnelle"]
+    LOCAL["Local"]
+
+    SITE -->|0,n| SSITE
+    SITE -->|1,n| BATI
+    SSITE -.->|0,n optionnel| BATI
+    BATI -->|1,n| UF
+    UF -->|0,n optionnel| LOCAL
+
+    classDef geo fill:#2c7fb8,stroke:#2c7fb8;
+    class SITE,SSITE,BATI geo;
+```
+
 ### Définitions
 
 Classe | Définition | Remarque | Géométrique ? 
