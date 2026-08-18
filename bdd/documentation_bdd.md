@@ -5,11 +5,11 @@
 Le modèle de données est composé d'une table principale `an_patbat_entite` qui comporte les informations communes aux 5 niveaux du référentiel et crée l'identifiant unique `id_entite` pour chaque entité.
 
 Chaque niveau a aussi une table qui réutilise l'identifiant `id_entite` dans laquelle est stocké les informations spécifique à ce niveau :
-Site : `geo_patbat_site`
-Sous-site : `geo_patbat_ssite`
-Bâtiment : `geo_patbat_bati`
-Unité fonctionnelle : `an_patbat_bati`
-Local : `an_patbat_local`
+- Site : `geo_patbat_site`
+- Sous-site : `geo_patbat_ssite`
+- Bâtiment : `geo_patbat_bati`
+- Unité fonctionnelle : `an_patbat_bati`
+- Local : `an_patbat_local`
 
 ## Dépendances
 
