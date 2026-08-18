@@ -21,7 +21,7 @@ Classe | Définition | Remarque
 --------- | --------- |--------- 
 Site | Lieu géographique cohérent, généralement clos, comportant du patrimoine bâti et disposant d’une dénomination usuelle commune (il fait sens commun)  | Il est autant que possible indépendant d’une approche métier, organisationnelle ou administrative afin d'assurer sa stabilité (délimitation, dénomination). 
 Sous-site | Classe optionnelle décrivant un sous-lieu géographique cohérent du patrimoine bâti dans un site | Cette classe permet si nécessaire de segmenter des fractions d'un site
-Bâtiment | Construction souterraine et/ou au-dessus du sol, ayant pour objectif d'être permanente, pour abriter des humains ou des activités humaines. Un bâtiment possède a minima un accès depuis l’extérieur. Dans la mesure du possible, un bâtiment est distinct d’un autre dès lors qu’il est impossible de circuler entre eux. | La définition est héritée de celle du CNIG à la suite dess travaux du projet de Référentiel National des Bâtiments (RNB)
+Bâtiment | Construction souterraine et/ou au-dessus du sol, ayant pour objectif d'être permanente, pour abriter des humains ou des activités humaines. Un bâtiment possède a minima un accès depuis l’extérieur. Dans la mesure du possible, un bâtiment est distinct d’un autre dès lors qu’il est impossible de circuler entre eux. | La définition est héritée de celle du CNIG à la suite des travaux du projet de Référentiel National des Bâtiments (RNB)
 Unité fonctionnelle | Ensemble de locaux / cellules d'un bâtiment partageant une fonction commune. |
 Local | Classe optionnelle comprenant un local ou cellule d'un bâtiment | Cette classe permet si nécessaire (selon la complexité du site) de rajouter les locaux compris dans une unité fonctionnelle
 
