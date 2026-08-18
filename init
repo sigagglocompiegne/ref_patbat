@@ -340,7 +340,7 @@ COMMENT ON COLUMN r_patbat.an_patbat_contact.dbstatut IS 'Statut du contact, ges
 
 -- Table de relation entre les contacts et les fonctions de contacts 
 create table r_patbat.lk_patbat_contact (
-	gid serial,
+	gid serial PRIMARY KEY,
     id_entite INT4 NOT NULL,
     id_contact INT2 NOT NULL,
     code_fonction VARCHAR(2) NOT NULL, --table de valeur 
@@ -479,8 +479,8 @@ CREATE TABLE r_patbat.geo_patbat_pdl(
 	geom Geometry(Point,2154),
 
 	CONSTRAINT geo_patbat_pdl_fluide_fkey FOREIGN KEY(type_fluide) REFERENCES r_patbat.lt_patbat_fluide(code),
-	CONSTRAINT pdl_parent_fkey FOREIGN KEY (compteur_parent) REFERENCES r_patbat.geo_patbat_pdl(code_ref) ON DELETE SET NULL ON UPDATE CASCADE -- si on update le code ref d'un parent, ca se répercute dans les sous-compteurs
-
+	CONSTRAINT pdl_parent_fkey FOREIGN KEY (compteur_parent) REFERENCES r_patbat.geo_patbat_pdl(code_ref) ON DELETE SET NULL ON UPDATE CASCADE, -- si on update le code ref d'un parent, ca se répercute dans les sous-compteurs
+	CONSTRAINT geo_patbat_pdl_type FOREIGN KEY (type_compteur) REFERENCES r_patbat.lt_patbat_type_compteur(code)
 );
 
 COMMENT ON TABLE r_patbat.geo_patbat_pdl IS 'Table contenant les informations des PDL';
@@ -607,6 +607,10 @@ COMMENT ON COLUMN r_patbat.an_patbat_parcelle.numero IS 'Numéro de la parcelle'
 -----------------------------------------------------------------------------------------
 --                                   TABLES DE LIEN                                    --
 -----------------------------------------------------------------------------------------
+
+--
+-- Tables utilisées dans la partie arbre de relation dans GEO
+--
 
 CREATE TABLE r_patbat.lk_patbat_site_ssite (
 	gid serial PRIMARY key,
@@ -820,7 +824,6 @@ BEGIN
 			RAISE EXCEPTION '<span style="color:red;"><b>Le site est entièrement compris dans un autre site existant</b></span><br><br>';
 		END IF;
 	END IF;
-
 
 	-- test que le site est bien dans une seule commune 
 	IF (SELECT count(*) FROM r_osm.geo_osm_commune c WHERE ST_Intersects(NEW.geom, c.geom) AND NOT ST_Touches(NEW.geom, c.geom)) > 1 THEN 
