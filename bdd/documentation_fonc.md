@@ -101,12 +101,10 @@ Point important : les compteurs utilisés (`nb_bati`, `nb_ssite`, `nb_uf`, `nb_l
 - La **commune** et le **code INSEE** sont automatiquement déterminés par intersection avec le référentiel des communes (schéma `r_osm`) ;
 - Les **parcelles cadastrales** concernées sont automatiquement identifiées par intersection avec le cadastre (schéma `r_cadastre`) et une décomposition section/numéro est réalisée automatiquement.
 
-L'utilisateur n'a donc jamais à renseigner manuellement une commune, un code INSEE ou une référence de parcelle : il dessine la géométrie, le reste est déduit.
-
 ### 3.4 Calcul automatique des superficies et compteurs
 
 - La **superficie au sol** (site, sous-site, bâtiment) est calculée automatiquement à partir de la géométrie dessinée.
-- La **superficie au sol totale des bâtiments** d'un site ou d'un sous-site est recalculée automatiquement à chaque ajout, modification ou suppression d'un bâtiment.
+- La **superficie au sol totale des bâtiments** d'un site ou d'un sous-site est recalculée automatiquement à chaque ajout, modification ou suppression d'un bâtiment ou site/sous-site.
 - La **superficie développée** (surface de plancher) peut être saisie manuellement par bâtiment/UF/local, avec une case « mesurée » permettant de distinguer une valeur fiable (relevé/plan) d'une valeur estimée.
 - La **superficie développée totale des bâtiments** au niveau du site est calculée automatiquement avec la superficie développée des bâtiments et n'est considéré comme « mesuré » que si **tous** les bâtiments qui le composent ont eux-mêmes une valeur mesurée — le fait que cette superficie totale soit mesurée empêche la saisie manuelle.
 
@@ -119,7 +117,7 @@ L'utilisateur n'a donc jamais à renseigner manuellement une commune, un code IN
 
 - Chaque entité a une **catégorie principale** (Administratif, Enseignement, Sportif...) et peut avoir plusieurs **sous-catégories** rattachées.
 - Si l'utilisateur **change la catégorie principale** d'une entité, les sous-catégories déjà sélectionnées qui n'appartiennent plus à la nouvelle catégorie sont **automatiquement retirées**, pour éviter des combinaisons incohérentes (ex. garder « École maternelle » sur une entité repassée en catégorie « Sportif »).
-- Le champ multivalué **type d'établissement** (ERP / ERT) est saisi via une liste à choix multiple dans QGIS/GEO ; le format technique renvoyé par QGIS est automatiquement nettoyé et reformaté (`ERP;ERT`) pour rester lisible en base et dans les exports.
+- Le champ multivalué **type d'établissement** (ERP / ERT) est saisi via une liste à choix multiple dans QGIS/GEO ; le format technique renvoyé par QGIS est automatiquement nettoyé et reformaté (`ERP;ERT`) pour rester cohérent avec GEO.
 
 ---
 
@@ -163,6 +161,7 @@ flowchart LR
   - qu'un sous-compteur soit son propre parent ;
   - repasser un compteur principal en sous-compteur tant que d'autres sous-compteurs lui sont encore rattachés.
 - Un même PDL peut être rattaché à plusieurs niveaux à la fois (site, bâtiment, UF, local), pour représenter par exemple un compteur desservant un bâtiment entier ou un seul local.
+- Les PDL sont reliés graphiquement aux entités rattachées sur la carte dans GEO — les sous-compteurs sont reliés à leurs compteurs parent
 
 ---
 
