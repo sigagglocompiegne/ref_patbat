@@ -478,3 +478,221 @@ Structure de table « modèle » utilisée par le module média de GEO pour la s
 Particularités à noter :
 - 1 clé étrangère : `type_media` → `lt_type_media(code)`.
 
+--- 
+## Tables de lien
+
+### Contacts, organisations, adresses, PDL
+
+#### `r_patbat`.`lk_patbat_orga_role`
+Classe de relation entre les organisations, les rôles qu'elles peuvent avoir et les entités.
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| gid | Identifiant unique du lien | serial | nextval() |
+| id_entite | Identifiant de l'entité | integer | |
+| id_orga | Identifiant de l'organisation | smallint | |
+| code_role | Code du rôle de l'organisation | character varying(2) | |
+
+Particularités à noter :
+- Clé primaire sur `gid`.
+- 3 clés étrangères : `id_entite` → `an_patbat_entite`, `id_orga` → `an_patbat_orga`, `code_role` → `lt_patbat_role`.
+- 1 trigger : `t_t_verif_unique_orga_role` (`BEFORE INSERT OR UPDATE`) : interdit la création d'un doublon (même entité + même organisation + même rôle).
+
+#### `r_patbat`.`lk_patbat_contact`
+Classe de relation entre les entités, les fonctions de contact, et les contacts.
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| gid | Identifiant unique du lien | serial | nextval() |
+| id_entite | Identifiant de l'entité | integer | |
+| id_contact | Identifiant du contact | smallint | |
+| code_fonction | Fonction du contact | character varying(2) | |
+
+Particularités à noter :
+- Clé primaire sur `gid`.
+- 3 clés étrangères : `id_entite` → `an_patbat_entite`, `id_contact` → `an_patbat_contact`, `code_fonction` → `lt_patbat_fonction`.
+- 1 trigger : `t_t_verif_unique_contact` (`BEFORE INSERT OR UPDATE`) : interdit qu'un même contact soit affecté deux fois à la même entité avec la même fonction.
+
+#### `r_patbat`.`lk_patbat_adresse`
+Table de liaison entre le patrimoine bâti et le référentiel adresse (RVA).
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| gid | Identifiant unique du lien | serial | nextval() |
+| id_entite | Identifiant de l'entité | integer | |
+| id_adresse | Clé d'interopérabilité vers le référentiel RVA | integer | |
+
+Particularités à noter :
+- Clé primaire sur `gid`.
+- 1 clé étrangère : `id_entite` → `an_patbat_entite(id_entite)` `ON DELETE CASCADE`.
+- 1 trigger : `t_t_verif_unique_adresse` (`BEFORE INSERT OR UPDATE`) : interdit la création d'un doublon entité/adresse.
+
+#### `r_patbat`.`lk_patbat_pdl`
+Table de relation entre une entité et un PDL.
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| gid | Identifiant unique du lien | serial | nextval() |
+| id_entite | Identifiant de l'entité | integer | |
+| id_pdl | Identifiant du PDL | smallint | |
+
+Particularités à noter :
+- Clé primaire sur `gid`.
+- 1 trigger : `t_t_verif_unique_pdl` (`BEFORE INSERT OR UPDATE`) : interdit qu'un même PDL soit associé deux fois à la même entité.
+
+---
+
+## Tables de valeurs (listes)
+
+### `r_patbat`.`lt_patbat_etat`
+Table de valeur des états des bâtiments.
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| code | Code de l'état des bâtiments | character varying(2) | |
+| valeur | Valeur de l'état des bâtiments | character varying(100) | |
+
+Particularités à noter :
+- Clé primaire sur `code`.
+
+### `r_patbat`.`lt_patbat_categorie`
+Table de valeur des catégories d'entités.
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| code | Code de la catégorie | character varying(2) | |
+| valeur | Valeur de la catégorie | character varying(100) | |
+
+Particularités à noter :
+- Clé primaire sur `code`.
+
+### `r_patbat`.`lt_patbat_niveau`
+Table de valeur des niveaux d'entités (site, sous-site, bâtiment, unité, local).
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| code | Code du niveau d'entité | character varying(2) | |
+| valeur | Valeur du niveau d'entité | character varying(20) | |
+
+Particularités à noter :
+- Clé primaire sur `code`.
+- Contrainte `UNIQUE` sur `valeur` (utilisée comme cible de clé étrangère par `an_patbat_entite.niveau`).
+
+### `r_patbat`.`lt_patbat_role`
+Table de valeur des rôles des organisations (propriétaire, exploitant...).
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| code | Code du rôle | character varying(2) | |
+| valeur | Valeur du rôle | character varying(50) | |
+
+Particularités à noter :
+- Clé primaire sur `code`.
+
+### `r_patbat`.`lt_patbat_fonction`
+Liste de valeurs des fonctions des contacts.
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| code | Code de la fonction du contact | character varying(2) | |
+| valeur | Valeur de la fonction du contact | character varying(100) | |
+
+Particularités à noter :
+- Clé primaire sur `code`.
+
+### `r_patbat`.`lt_patbat_sous_cat`
+Table de valeur des sous-catégories, rattachées à une catégorie principale.
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| code | Code de la sous-catégorie | character varying(2) | |
+| code_cate | Code de la catégorie principale à laquelle est liée la sous-catégorie | character varying(2) | |
+| valeur | Valeur de la sous-catégorie | character varying(100) | |
+
+Particularités à noter :
+- Clé primaire sur `code`.
+- 1 clé étrangère : `code_cate` → `lt_patbat_categorie(code)`.
+
+### `r_patbat`.`lt_patbat_type_eta`
+Table de valeurs des types d'établissements (utilisée dans QGIS comme liste de valeurs).
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| code | Code du type d'établissement | character varying(3) | |
+| valeur | Valeur du type d'établissement | character varying(200) | |
+
+Particularités à noter :
+- Clé primaire sur `code`.
+
+### `r_patbat`.`lt_patbat_fluide`
+Table de valeur des types de fluides.
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| code | Code du type de fluide | character varying(2) | |
+| valeur | Valeur du type de fluide | character varying(50) | |
+
+Particularités à noter :
+- Clé primaire sur `code`.
+
+### `r_patbat`.`lt_patbat_type_compteur`
+Table de valeur des types de compteur.
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| code | Code du type de compteur | character varying(2) | |
+| valeur | Valeur du type de compteur | character varying(30) | |
+
+Particularités à noter :
+- Clé primaire sur `code`.
+
+### `r_patbat`.`lt_type_media`
+Table de valeur des types de médias/documents joints.
+| Colonne | Description | Type | Valeur par défaut |
+| :--- | :--- | :--- | :--- |
+| code | Code du type de média | character varying(2) | |
+| valeur | Libellé du type de média | character varying(20) | |
+
+Particularités à noter :
+- Clé primaire sur `code`.
+
+---
+
+## Vues de liens géométriques
+
+Ces vues, sans trigger, servent uniquement à la représentation cartographique (traits reliant un PDL à l'entité qu'il alimente).
+
+### `r_patbat`.`geo_v_lien_pdl_site`
+Vue de création d'un lien entre un PDL et un site, sous forme d'une géométrie ligne.
+| Colonne | Description | Type |
+| :--- | :--- | :--- |
+| id_lien | Identifiant unique du lien | integer |
+| id_pdl | Identifiant du PDL | integer |
+| id_entite | Identifiant du site | integer |
+| code_ref | Code de référence du PDL | character varying |
+| geom | Géométrie ligne, représente le lien entre PDL et site | geometry(LineString,2154) |
+
+Particularités à noter :
+- Basée sur la jointure `geo_patbat_pdl` → `lk_patbat_pdl` → `geo_v_patbat_site` : ne montre donc que les liens vers des sites actifs.
+- La ligne est tracée entre le point du PDL et le centroïde (`ST_PointOnSurface`) de la géométrie du site.
+
+### `r_patbat`.`geo_v_lien_pdl_ssite`
+Vue de création d'un lien entre un PDL et un sous-site, sous forme d'une géométrie ligne (mêmes principes que `geo_v_lien_pdl_site`, avec `geo_v_patbat_ssite`).
+
+### `r_patbat`.`geo_v_lien_pdl_interieur`
+Vue de création d'un lien unifié entre un PDL et les entités internes (bâtiment, UF, local) partageant la même géométrie cible (celle du bâtiment).
+| Colonne | Description | Type |
+| :--- | :--- | :--- |
+| id_lien | Identifiant unique du lien (`id_pdl * 100000 + id_bati`) | integer |
+| id_pdl | Identifiant du PDL | integer |
+| code_ref | Code de référence du PDL | character varying |
+| id_bati | Identifiant du bâtiment centralisant la géométrie | integer |
+| etiquette_fusionnee | Texte concaténé des entités liées au PDL (ex. `B + UF`) pour l'affichage cartographique | text |
+| geom | Géométrie ligne, représente le lien entre le PDL et le bâtiment | geometry(LineString,2154) |
+
+Particularités à noter :
+- Union de 3 sous-requêtes (liens directs au bâtiment, à une UF du bâtiment, à un local d'une UF du bâtiment), regroupées (`GROUP BY`) par PDL et bâtiment afin de n'avoir qu'une seule ligne par couple PDL/bâtiment, quel que soit le nombre d'entités internes reliées.
+- Permet d'éviter la superposition de plusieurs traits identiques sur la carte lorsque le PDL est relié à la fois au bâtiment, à une UF et à un local situés au même endroit.
+
+### `r_patbat`.`geo_v_lien_sous_compteur_parent`
+Vue de création d'un lien entre un sous-compteur et son compteur principal.
+| Colonne | Description | Type |
+| :--- | :--- | :--- |
+| id_lien | Identifiant du lien (= `id_pdl` du sous-compteur) | integer |
+| id_sous_compteur | Identifiant du sous-compteur | integer |
+| ref_sous_compteur | Code de référence du sous-compteur | character varying |
+| id_compteur_principal | Identifiant du compteur principal | integer |
+| ref_compteur_principal | Code de référence du compteur principal | character varying |
+| geom | Géométrie ligne entre le sous-compteur et son compteur principal | geometry(LineString,2154) |
+
+Particularités à noter :
+- Auto-jointure de `geo_patbat_pdl` sur `compteur_parent = code_ref`, ne retourne que les PDL possédant un `compteur_parent` renseigné.
+
+---
