@@ -12,7 +12,7 @@ Les objectifs poursuivis sont de :
 - définir des modalités d'information en cas de modification du référentiel auprès des différents services concernés pour répercussion dans leurs progiciels métiers et les mettre en oeuvre
 
 ## Classes
-Le modèle de données decrivant le patrimoine bâti s'organise autour de 3 classes principales et 1 optionnelle.
+Le modèle de données decrivant le patrimoine bâti s'organise autour de 4 classes principales et 1 optionnelle.
 D'autres classes sont intégrées pour gérer des informations métiers attachées au référentiel (ex : classe pour gérer les contacts)
 
 ### Définitions
