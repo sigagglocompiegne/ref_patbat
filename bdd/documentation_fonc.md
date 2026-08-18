@@ -91,7 +91,8 @@ Point important : les compteurs utilisés (`nb_bati`, `nb_ssite`, `nb_uf`, `nb_l
 ### 3.2 Contrôles topologiques automatiques
 
 - **Non-superposition** : deux entités actives d'un même niveau ne peuvent pas se chevaucher géographiquement. Si un chevauchement est détecté à la saisie, le système **découpe automatiquement** la nouvelle géométrie pour ne garder que la partie non déjà occupée (au lieu de bloquer la saisie).
-- **Confinement dans le parent** : un sous-site doit être dans un site, un bâtiment dans un site, une intersection est recherchée automatiquement pour déterminer le site/sous-site parent (pas besoin de le sélectionner manuellement).
+- **Confinement dans le parent** : un sous-site doit être dans un site, un bâtiment dans un site, une intersection est recherchée automatiquement pour déterminer le site/sous-site parent (pas besoin de le sélectionner manuellement)
+- **Saisie sous-site** : si un sous-site n'est pas compris entièrement dans un site lors de la saisie, le système **découpe automatiquement** la géométrie du sous-site pour le faire rentrer dans le site, si un sous-site est compris dans 2 sites différents à la saisie, alors le système le met dans le site avec l'aire d'intersection la plus grande.
 - **Commune unique** : un site ne peut pas chevaucher deux communes différentes ; la saisie est bloquée dans ce cas.
 - **Cohérence des statuts** : impossible de créer ou réactiver une entité active si son entité parente est en corbeille.
 
