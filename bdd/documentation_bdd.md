@@ -479,6 +479,7 @@ Particularités à noter :
 - 1 clé étrangère : `type_media` → `lt_type_media(code)`.
 
 --- 
+
 ## Tables de lien
 
 ### Contacts, organisations, adresses, PDL
