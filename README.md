@@ -2,6 +2,10 @@
 
 # Référentiel patrimoine bâti
 
+## Documentation 
+- [Script d'initialisation de la base de données](init)
+- [Documentation de la base de données](bdd/documentation_bdd.md)
+
 ## Désignation
 Le périmètre du référentiel porte sur le patrimoine des collectivités locales en situation de propriété ou d'exploitation de tout ou partie des locaux d'un batiment.
 
