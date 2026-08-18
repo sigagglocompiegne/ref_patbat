@@ -2,19 +2,14 @@
 
 # Référentiel patrimoine bâti
 
-## Changelog
-- 19/12/2024 : initialisation de la documentation
-- 03/04/2025 : Ajout volet classes, définitions, relations, cycle de vie
-- 
 ## Désignation
 Le périmètre du référentiel porte sur le patrimoine des collectivités locales en situation de propriété ou d'exploitation de tout ou partie des locaux d'un batiment.
 
 ## Objectif
-Les objectifs poursuivis sont de
-- construire un référentiel partagé et limitatif des seuls besoins métiers (est exclu la gestion de chaque local ou la gestion d'une troisième dimension avec les étages des batiments)
+Les objectifs poursuivis sont de :
+- construire un référentiel partagé et limitatif des seuls besoins métiers (est exclu la gestion d'une dimension avec les étages des batiments)
 - définir le cycle de vie du référentiel en identifiant les événements de nature à le faire vivre
 - définir des modalités d'information en cas de modification du référentiel auprès des différents services concernés pour répercussion dans leurs progiciels métiers et les mettre en oeuvre
-- idéalement, étudier l'hypothèse d'intégration automatisée du référentiel et sa mise à jour, dans les progiciels métiers et la mettre en oeuvre
 
 ## Classes
 Le modèle de données decrivant le patrimoine bâti s'organise autour de 3 classes principales et 1 optionnelle.
@@ -27,13 +22,15 @@ Classe | Définition | Remarque
 Site | Lieu géographique cohérent, généralement clos, comportant du patrimoine bâti et disposant d’une dénomination usuelle commune (il fait sens commun)  | Il est autant que possible indépendant d’une approche métier, organisationnelle ou administrative afin d'assurer sa stabilité (délimitation, dénomination). 
 Sous-site | Classe optionnelle décrivant un sous-lieu géographique cohérent du patrimoine bâti dans un site | Cette classe permet si nécessaire de segmenter des fractions d'un site
 Bâtiment | Construction souterraine et/ou au-dessus du sol, ayant pour objectif d'être permanente, pour abriter des humains ou des activités humaines. Un bâtiment possède a minima un accès depuis l’extérieur. Dans la mesure du possible, un bâtiment est distinct d’un autre dès lors qu’il est impossible de circuler entre eux. | La définition est héritée de celle du CNIG à la suite dess travaux du projet de Référentiel National des Bâtiments (RNB)
-Unité fonctionnelle | Ensemble de locaux / cellules d'un bâtiment partageant une fonction commune. | Cette classe répond à la volonté de ne pas avoir à descendre le modèle à l'échelle de chaque local.
+Unité fonctionnelle | Ensemble de locaux / cellules d'un bâtiment partageant une fonction commune. |
+Local | Classe optionnelle comprenant un local ou cellule d'un bâtiment | Cette classe permet si nécessaire (selon la complexité du site) de rajouter les locaux compris dans une unité fonctionnelle
 
 ### Relations
 - Un site doit être sur une et seule commune
 - Un sous site doit être inclus dans un site
 - Un bâtiment doit être inclus dans un site
 - Une unité fonctionnelle doit être incluse dans un bâtiment
+- Un local doit être inclus dans une unité fonctionnelle
 - Un bâtiment peut être inclus dans aucun à plusieurs sous-sites
 
 ### Cycle de vie
