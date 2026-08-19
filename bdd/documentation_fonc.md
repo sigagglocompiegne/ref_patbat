@@ -25,7 +25,7 @@ flowchart TD
     S --> B
     SS -.-> B
     B --> UF
-    UF -,-> L
+    UF -.-> L
 ```
 ---
 ## 2. Les informations transverses liées à une entité
